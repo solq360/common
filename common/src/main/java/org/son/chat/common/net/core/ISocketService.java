@@ -5,6 +5,7 @@ package org.son.chat.common.net.core;
  * @author solq
  */
 public interface ISocketService {
+	public void init();
 	public void start();
 	public void stop();
 }

@@ -1,15 +1,32 @@
 package org.son.chat.common.net.core;
 
+import java.net.InetSocketAddress;
+
 /**
  * @author solq
  */
 public class SocketChannelConfig {
-	// public void setLocalAddress(SocketAddress socketAddress);
-	//
-	// public void getLocalAddress();
-	//
-	// public void setRemoteAddress();
-	//
-	// public void getRemoteAddress();
+	private InetSocketAddress localAddress;
+	private InetSocketAddress remoteAddress;
 
+	// getter
+	public InetSocketAddress getLocalAddress() {
+		return localAddress;
+	}
+
+	public InetSocketAddress getRemoteAddress() {
+		return remoteAddress;
+	}
+
+	public static SocketChannelConfig valueOf(int remotePort) {
+		SocketChannelConfig result = new SocketChannelConfig();
+		result.remoteAddress = new InetSocketAddress(remotePort);
+		return result;
+	}
+
+	public static SocketChannelConfig valueOf(String remoteHost, int remotePort) {
+		SocketChannelConfig result = new SocketChannelConfig();
+		result.remoteAddress = new InetSocketAddress(remoteHost, remotePort);
+		return result;
+	}
 }

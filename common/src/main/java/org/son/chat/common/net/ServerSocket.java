@@ -18,6 +18,11 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	private Map<String, ClientSocket> clients = new ConcurrentHashMap<>();
 
 	@Override
+	public void init() {
+ 
+	}
+
+	@Override
 	public void start() {
 
 	}
@@ -33,4 +38,5 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 			s.send(msg);
 		}
 	}
+
 }

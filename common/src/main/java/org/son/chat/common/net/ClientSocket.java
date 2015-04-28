@@ -59,7 +59,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		init();
 		while (!close) {
 			try {
-				int n = selector.select(300);
+				int n = selector.select(10);
 				if (n < 0) {
 					continue;
 				}
@@ -67,28 +67,11 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 				e.printStackTrace();
 				break;
 			}
-
 			for (Iterator<SelectionKey> i = selector.selectedKeys().iterator(); i.hasNext();) {
 				// 得到下一个Key
 				SelectionKey key = i.next();
-				// 检查其是否还有效
-				if (!key.isValid())
-					continue;
-
-				// 可能存在一次在channel 注册多个操作 不能用 elseif
 				try {
-					if (key.isAcceptable()) {
-						handleAccept(key);
-					}
-					if (key.isConnectable()) {
-						handleConnected(key);
-					}
-					if (key.isReadable()) {
-						handleRead(key);
-					}
-					if (key.isWritable()) {
-						handleWrite(key);
-					}
+					handle(key);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -107,9 +90,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 				e.printStackTrace();
 			}
 			selector = null;
-
 			// 业务层通知
-			unRegister();
 			close();
 		}
 		close = false;
@@ -137,25 +118,28 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 			this.selector = Selector.open();
 			this.connected = this.channel.isConnected();
 			if (!this.connected) {
-				// selectionKey().interestOps(SelectionKey.OP_CONNECT);
 				// this.channel.register(this.selector, SelectionKey.OP_CONNECT);
+				// 定时连接
 			} else {
-				while (!this.channel.finishConnect()) {
-				}
-				SelectionKey sk = this.channel.register(this.selector, 0);
-				NioUtil.setOps(sk, SelectionKey.OP_READ);
-				this.register();
-
-				testWrite();
+				finishConnect();
 			}
 
-			this.close = false;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private void testWrite() throws IOException { 
+	private void finishConnect() throws IOException {
+		while (!this.channel.finishConnect()) {
+		}
+		SelectionKey sk = this.channel.register(this.selector, 0, bindCtx());
+		NioUtil.setOps(sk, SelectionKey.OP_READ);
+
+		testWrite();
+		this.close = false;
+	}
+
+	private void testWrite() throws IOException {
 		ByteBuffer buffer = ByteBuffer.allocate(1024 * 4);
 		buffer.put("xxxxx".getBytes());
 		buffer.flip();

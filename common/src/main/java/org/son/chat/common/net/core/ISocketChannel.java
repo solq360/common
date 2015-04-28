@@ -10,6 +10,8 @@ public interface ISocketChannel {
 	// ////////////////配置属性////////////////////////
 	public SocketChannelConfig getSocketChannelConfig();
 
+	public SocketChannelCtx getSocketChannelCtx();
+
 	// //////////////////链路处理行为//////////////////////////
 	public void open();
 
@@ -18,6 +20,5 @@ public interface ISocketChannel {
 	public void close();
 
 	public void unRegister();
-	
-	
+
 }

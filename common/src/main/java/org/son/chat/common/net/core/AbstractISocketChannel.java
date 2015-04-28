@@ -7,6 +7,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
+import org.son.chat.common.net.config.SocketChannelConfig;
+import org.son.chat.common.net.core.coder.CoderParser;
+import org.son.chat.common.net.core.coder.CoderResult;
+import org.son.chat.common.net.core.coder.ICoderParser;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.handle.ISocketHandle;
 import org.son.chat.common.net.util.NioUtil;
@@ -17,17 +21,14 @@ import org.son.chat.common.net.util.NioUtil;
  */
 public abstract class AbstractISocketChannel implements ISocketChannel {
 
-	/******** jdk nio 选择器 ************/
+	/** jdk selector **/
 	protected Selector selector;
-	/******** jdk nio socket channel ************/
-	protected SocketChannel channel;
 
 	protected boolean close = true;
 
-	protected ICoderParser coderParser;
+	protected ICoderParser coderParser = new CoderParser();
 	protected ISocketHandle socketHandle;
 	protected SocketChannelConfig socketChannelConfig;
-	protected SocketChannelCtx socketChannelCtx;
 
 	@Override
 	public SocketChannelConfig getSocketChannelConfig() {
@@ -35,33 +36,23 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 	}
 
 	@Override
-	public SocketChannelCtx getSocketChannelCtx() {
-		return socketChannelCtx;
-	}
-
-	@Override
 	public void open() {
-		socketHandle.open(channel);
+		// socketHandle.open(socketChannelCtx);
 	}
 
 	@Override
 	public void register() {
-		socketHandle.register(channel);
+		// socketHandle.register(socketChannelCtx);
 	}
 
 	@Override
 	public void close() {
-		socketHandle.close(channel);
+		// socketHandle.close(socketChannelCtx);
 	}
 
 	@Override
 	public void unRegister() {
-		socketHandle.unRegister(channel);
-	}
-
-	protected SocketChannelCtx bindCtx() {
-		socketChannelCtx = SocketChannelCtx.valueOf();
-		return socketChannelCtx;
+		// socketHandle.unRegister(socketChannelCtx);
 	}
 
 	protected void handle(SelectionKey key) {
@@ -89,8 +80,9 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 		try {
 			SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
 			clientChannel.configureBlocking(false);
-			//必须是新注册的 SelectionKey
-			SelectionKey sk = clientChannel.register(selector, 0, bindCtx());
+			SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, clientChannel);
+			// 必须是新注册的 SelectionKey
+			SelectionKey sk = clientChannel.register(selector, 0, ctx);
 			NioUtil.setOps(sk, SelectionKey.OP_READ);
 			open();
 		} catch (IOException e) {
@@ -114,22 +106,42 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 		System.out.println(" handleRead ");
 
 		SocketChannel clientChannel = (SocketChannel) key.channel();
+		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) key.attachment();
 		ByteBuffer buffer = socketChannelCtx.getReadBuffer();
 		buffer.clear();
 		buffer.position(socketChannelCtx.getWriteIndex());
 		try {
+
 			long bytesRead = clientChannel.read(buffer);
 			if (bytesRead == -1) {
-
+				coderParser.error(buffer);
 			} else {
-				buffer.flip();
 				// 编码处理
-				System.out.println(new String(buffer.array(), 0, buffer.limit()));
-				// 服务端读到东西后，注册写事件。等写完东西后取消写事件的注册。
-				NioUtil.setOps(key, SelectionKey.OP_WRITE);
+
+				CoderResult coderResult = coderParser.decode(buffer);
+				switch (coderResult.getValue()) {
+				case SUCCEED:
+					// clear buffer
+					break;
+				case UNFINISHED:
+					break;
+				case SUCCEED_WRITE_BACK:
+					Object content = coderResult.getContent();
+					ByteBuffer responseMessage = (ByteBuffer) coderParser.encode(content);
+					socketChannelCtx.getChannel().write(responseMessage);
+					// buffer.flip();
+					// System.out.println(new String(buffer.array(), 0, buffer.limit()));
+					// 服务端读到东西后，注册写事件。等写完东西后取消写事件的注册。
+					NioUtil.setOps(key, SelectionKey.OP_WRITE);
+					break;
+				default:
+					// TODO throw
+					break;
+				}
 			}
 
 		} catch (Exception e) {
+			coderParser.error(buffer);
 			// 链路关闭，不清理读操作会造成死循环
 			NioUtil.clearOps(key, SelectionKey.OP_READ);
 			try {

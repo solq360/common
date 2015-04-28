@@ -1,6 +1,6 @@
 package org.son.chat.common.net.handle;
 
-import java.nio.channels.spi.AbstractSelectableChannel;
+import org.son.chat.common.net.core.SocketChannelCtx;
 
 /**
  * socket 链路逻辑处理
@@ -8,12 +8,12 @@ import java.nio.channels.spi.AbstractSelectableChannel;
  */
 public interface ISocketHandle {
 
-	void open(AbstractSelectableChannel channel);
+	void open(SocketChannelCtx ctx);
 
-	void register(AbstractSelectableChannel channel);
+	void register(SocketChannelCtx ctx);
 
-	void close(AbstractSelectableChannel channel);
+	void close(SocketChannelCtx ctx);
 
-	void unRegister(AbstractSelectableChannel channel);
+	void unRegister(SocketChannelCtx ctx);
 
 }

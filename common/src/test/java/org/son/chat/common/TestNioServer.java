@@ -7,13 +7,11 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import org.son.chat.common.net.ClientSocket;
-import org.son.chat.common.net.handle.ISocketHandle;
 import org.son.chat.common.net.util.NioUtil;
 
 /**
@@ -32,28 +30,6 @@ public class TestNioServer extends ClientSocket {
 			socketChannel.bind(new InetSocketAddress(6969));
 			socketChannel.register(selector, SelectionKey.OP_ACCEPT);
 			this.close = false;
-			this.socketHandle = new ISocketHandle() {
-
-				@Override
-				public void unRegister(AbstractSelectableChannel channel) {
-
-				}
-
-				@Override
-				public void register(AbstractSelectableChannel channel) {
-
-				}
-
-				@Override
-				public void open(AbstractSelectableChannel channel) {
-
-				}
-
-				@Override
-				public void close(AbstractSelectableChannel channel) {
-
-				}
-			};
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -71,22 +47,22 @@ public class TestNioServer extends ClientSocket {
 			if (bytesRead == -1) {
 
 			} else {
-				Timer timer=new Timer();
+				Timer timer = new Timer();
 				timer.scheduleAtFixedRate(new TimerTask() {
-					
+
 					@Override
 					public void run() {
 						for (int i = 0; i < 10; i++) {
 							try {
 								testWrite(clientChannel, i);
 							} catch (IOException e) {
- 								e.printStackTrace();
+								e.printStackTrace();
 							}
 						}
-						NioUtil.setOps(key, SelectionKey.OP_WRITE);		
+						NioUtil.setOps(key, SelectionKey.OP_WRITE);
 						System.out.println(" push message");
 					}
-				}, new Date(),5000L);
+				}, new Date(), 5000L);
 
 			}
 

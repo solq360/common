@@ -1,4 +1,4 @@
-package org.son.chat.common.net.core;
+package org.son.chat.common.net.config;
 
 import java.net.InetSocketAddress;
 

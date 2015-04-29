@@ -109,15 +109,14 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 
 	void handleRead(SelectionKey key) {
 		System.out.println(" handleRead ");
-
 		SocketChannel clientChannel = (SocketChannel) key.channel();
 		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) key.attachment();
-		ByteBuffer buffer = socketChannelCtx.getReadBuffer();
-		buffer.clear();
-		buffer.position(socketChannelCtx.getWriteIndex());
+		ByteBuffer buffer = null;
 		try {
-
+			buffer = socketChannelCtx.readBegin();
 			long bytesRead = clientChannel.read(buffer);
+			socketChannelCtx.addWriteIndex(bytesRead);
+
 			if (bytesRead == -1) {
 				coderParserManager.error(buffer, socketChannelCtx);
 			} else {
@@ -129,11 +128,6 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 					break;
 				case UNFINISHED:
 					break;
-				// Object content = coderResult.getContent();
-				// ByteBuffer responseMessage = (ByteBuffer) coderParserManager.encode(content);
-				// socketChannelCtx.getChannel().write(responseMessage);
-				// // buffer.flip();
-				// // System.out.println(new String(buffer.array(), 0, buffer.limit()));
 				// // 服务端读到东西后，注册写事件。等写完东西后取消写事件的注册。
 				// NioUtil.setOps(key, SelectionKey.OP_WRITE);
 				case UNKNOWN:
@@ -146,7 +140,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 
 		} catch (Exception e) {
 			// 链路关闭，不清理读操作会造成死循环
-			NioUtil.clearOps(key, SelectionKey.OP_READ);			
+			NioUtil.clearOps(key, SelectionKey.OP_READ);
 			coderParserManager.error(buffer, socketChannelCtx);
 			try {
 				clientChannel.close();

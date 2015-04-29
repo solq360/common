@@ -38,10 +38,13 @@ public class ChatTestServerHandle implements IHandle<String, byte[]> {
 		Timer timer = new Timer();
 		timer.scheduleAtFixedRate(new TimerTask() {
 
+			private int sendCount = 0;
+
 			@Override
 			public void run() {
+				sendCount++;
 				for (int i = 0; i < 10; i++) {
-					socketChannelCtx.send(" 发送数据 : " + i);
+					socketChannelCtx.send(" 发送数据 : " + i + " 次数  : " + sendCount);
 				}
 				System.out.println(" push message");
 			}

@@ -21,4 +21,16 @@ public class TestByteBuffer {
 		Assert.assertEquals(3, bb.get(2));
 	}
 
+	
+	@Test
+	public void testAutoExtend() {
+		ByteBuffer bb = ByteBuffer.allocate(1);
+		bb.put((byte) 1);
+		bb.put((byte) 2);
+		bb.put((byte) 3);
+		bb.put((byte) 4);
+		bb.put((byte) 5);
+		Assert.assertEquals(3, bb.get(2));
+	}
+
 }

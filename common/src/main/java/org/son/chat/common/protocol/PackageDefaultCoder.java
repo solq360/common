@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 
 import org.son.chat.common.net.core.coder.IPackageCoder;
 import org.son.chat.common.net.core.coder.IcoderCtx;
+import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
 import org.son.chat.common.net.util.ByteHelper;
 
 /**
@@ -54,7 +55,7 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 		// 草，getInt 不会移动索引
 		final int bodyLen = value.getInt(HEAD_MARK.length);
 		final int readSize = value.limit() - HEAD_MARK.length;
-		// 帖包
+		// 半包
 		if (bodyLen > readSize) {
 			value.reset();
 			return null;
@@ -64,17 +65,21 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 		final int bodyPosition = value.position() + HEAD_MARK.length + 4;
 		value.position(bodyPosition);
 		value.get(result);
+
+		final int used = HEAD_MARK.length + 4 + bodyLen;
+		// 更新已读索引
+		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
+		socketChannelCtx.nextPackageIndex(used);
 		return result;
 	}
 
 	@Override
 	public boolean verify(ByteBuffer value, IcoderCtx ctx) {
 		// 是否外部做标记？
-		// SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
-		// 已读取标记
-		value.position(0);
-		value.mark();
-		byte[] headMark = new byte[HEAD_MARK.length];
+		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
+		value.position(socketChannelCtx.getCurrPackageIndex());
+  		value.mark();
+ 		byte[] headMark = new byte[HEAD_MARK.length];
 		value.get(headMark);
 		// 头标识判断
 		final boolean isRight = ByteHelper.contains(headMark, HEAD_MARK);

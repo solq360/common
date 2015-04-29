@@ -1,4 +1,4 @@
-package org.son.chat.common.net.core;
+package org.son.chat.common.net.core.socket;
 
 /**
  * 客户端socket服务 抽象
@@ -6,7 +6,5 @@ package org.son.chat.common.net.core;
  */
 public interface IClientSocketService extends ISocketService {
 	// //////////////////消息处理行为//////////////////////////
-	public byte[] read();
-
-	public void send(byte[] msg);
+	public void send(Object message);
 }

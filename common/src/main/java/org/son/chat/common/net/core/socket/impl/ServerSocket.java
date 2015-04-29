@@ -1,10 +1,10 @@
-package org.son.chat.common.net;
+package org.son.chat.common.net.core.socket.impl;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.son.chat.common.net.core.AbstractISocketChannel;
-import org.son.chat.common.net.core.IServerSocketService;
+import org.son.chat.common.net.core.socket.IServerSocketService;
+
 
 /**
  * 服务端socket 是一个管理多个 客户端 socket 处理 <br>

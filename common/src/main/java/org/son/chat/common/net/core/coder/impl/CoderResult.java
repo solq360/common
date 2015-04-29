@@ -1,4 +1,4 @@
-package org.son.chat.common.net.core.coder;
+package org.son.chat.common.net.core.coder.impl;
 
 /**
  * @author solq
@@ -8,8 +8,6 @@ public class CoderResult {
 	public static enum ResultValue {
 		/** 成功 **/
 		SUCCEED,
-		/** 成功并回写消息 **/
-		SUCCEED_WRITE_BACK,
 		/** 未完成 半包/帖包状态 **/
 		UNFINISHED,
 		/** 非法数据 **/
@@ -37,6 +35,18 @@ public class CoderResult {
 	public static CoderResult SUCCEED() {
 		CoderResult result = new CoderResult();
 		result.value = ResultValue.SUCCEED;
+		return result;
+	}
+
+	public static CoderResult UNFINISHED() {
+		CoderResult result = new CoderResult();
+		result.value = ResultValue.UNFINISHED;
+		return result;
+	}
+
+	public static CoderResult UNKNOWN() {
+		CoderResult result = new CoderResult();
+		result.value = ResultValue.UNKNOWN;
 		return result;
 	}
 }

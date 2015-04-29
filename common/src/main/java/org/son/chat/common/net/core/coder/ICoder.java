@@ -7,9 +7,9 @@ package org.son.chat.common.net.core.coder;
 public interface ICoder<INPUT, OUT> {
 
 	/** 编码 */
-	public OUT encode(INPUT input);
+	public OUT encode(INPUT value, IcoderCtx ctx);
 
 	/** 解码 */
-	public INPUT decode(OUT out);
+	public INPUT decode(OUT value, IcoderCtx ctx);
 
 }

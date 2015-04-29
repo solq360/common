@@ -1,17 +1,18 @@
-package org.son.chat.common.net;
+package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
-import org.son.chat.common.net.core.AbstractISocketChannel;
-import org.son.chat.common.net.core.IClientSocketService;
-import org.son.chat.common.net.core.SocketChannelCtx;
+import org.son.chat.common.net.core.coder.impl.CoderParser;
+import org.son.chat.common.net.core.coder.impl.CoderParserManager;
+import org.son.chat.common.net.core.socket.IClientSocketService;
 import org.son.chat.common.net.util.NioUtil;
+import org.son.chat.common.protocol.ChatHandle;
+import org.son.chat.common.protocol.PackageDefaultCoder;
 
 /**
  * @author solq
@@ -21,6 +22,9 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig) {
 		ClientSocket clientSocket = new ClientSocket();
 		clientSocket.socketChannelConfig = socketChannelConfig;
+		CoderParserManager coderParserManager = new CoderParserManager();
+		clientSocket.coderParserManager = coderParserManager;
+		coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
 		return clientSocket;
 	}
 
@@ -79,12 +83,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	}
 
 	@Override
-	public byte[] read() {
-		return null;
-	}
-
-	@Override
-	public void send(byte[] msg) {
+	public void send(Object message) {
 		// try {
 		// this.channel.write(ByteBuffer.wrap(msg));
 		// } catch (IOException e) {
@@ -117,19 +116,13 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		while (!channel.finishConnect()) {
 			// TODO 超时处理
 		}
-		SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, channel);
+		SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, channel, this.coderParserManager);
 		SelectionKey sk = channel.register(this.selector, 0, ctx);
 		NioUtil.setOps(sk, SelectionKey.OP_READ);
 		this.close = false;
-		
-		writeConnect(channel, 2);
+
+		ctx.send("连接服务器成功");
 		NioUtil.setOps(sk, SelectionKey.OP_WRITE);
 	}
 
-	private void writeConnect(SocketChannel channel, int i) throws IOException {
-		ByteBuffer buffer = ByteBuffer.allocate(1024 * 4);
-		buffer.put(("a" + i).getBytes());
-		buffer.flip();
-		channel.write(buffer);
-	}
 }

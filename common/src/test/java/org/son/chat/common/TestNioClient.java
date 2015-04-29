@@ -1,7 +1,7 @@
 package org.son.chat.common;
 
-import org.son.chat.common.net.ClientSocket;
 import org.son.chat.common.net.config.SocketChannelConfig;
+import org.son.chat.common.net.core.socket.impl.ClientSocket;
 
 public class TestNioClient {
 

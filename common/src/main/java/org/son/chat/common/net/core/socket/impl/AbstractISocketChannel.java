@@ -1,4 +1,4 @@
-package org.son.chat.common.net.core;
+package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -8,11 +8,10 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
-import org.son.chat.common.net.core.coder.CoderParser;
-import org.son.chat.common.net.core.coder.CoderResult;
-import org.son.chat.common.net.core.coder.ICoderParser;
+import org.son.chat.common.net.core.coder.ICoderParserManager;
+import org.son.chat.common.net.core.coder.impl.CoderResult;
+import org.son.chat.common.net.core.socket.ISocketChannel;
 import org.son.chat.common.net.exception.NetException;
-import org.son.chat.common.net.handle.ISocketHandle;
 import org.son.chat.common.net.util.NioUtil;
 
 /**
@@ -26,13 +25,19 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 
 	protected boolean close = true;
 
-	protected ICoderParser coderParser = new CoderParser();
-	protected ISocketHandle socketHandle;
+	protected ICoderParserManager coderParserManager;
 	protected SocketChannelConfig socketChannelConfig;
+
+	// protected ISocketHandle socketHandle;
 
 	@Override
 	public SocketChannelConfig getSocketChannelConfig() {
 		return socketChannelConfig;
+	}
+
+	@Override
+	public void setCoderParserManager(ICoderParserManager coderParserManager) {
+		this.coderParserManager = coderParserManager;
 	}
 
 	@Override
@@ -80,7 +85,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 		try {
 			SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
 			clientChannel.configureBlocking(false);
-			SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, clientChannel);
+			SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, clientChannel, this.coderParserManager);
 			// 必须是新注册的 SelectionKey
 			SelectionKey sk = clientChannel.register(selector, 0, ctx);
 			NioUtil.setOps(sk, SelectionKey.OP_READ);
@@ -102,7 +107,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 		NioUtil.clearOps(key, SelectionKey.OP_WRITE);
 	}
 
-	protected void handleRead(SelectionKey key) {
+	void handleRead(SelectionKey key) {
 		System.out.println(" handleRead ");
 
 		SocketChannel clientChannel = (SocketChannel) key.channel();
@@ -114,26 +119,25 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 
 			long bytesRead = clientChannel.read(buffer);
 			if (bytesRead == -1) {
-				coderParser.error(buffer);
+				coderParserManager.error(buffer, socketChannelCtx);
 			} else {
 				// 编码处理
-
-				CoderResult coderResult = coderParser.decode(buffer);
+				CoderResult coderResult = coderParserManager.decode(buffer, socketChannelCtx);
 				switch (coderResult.getValue()) {
 				case SUCCEED:
 					// clear buffer
 					break;
 				case UNFINISHED:
 					break;
-				case SUCCEED_WRITE_BACK:
-					Object content = coderResult.getContent();
-					ByteBuffer responseMessage = (ByteBuffer) coderParser.encode(content);
-					socketChannelCtx.getChannel().write(responseMessage);
-					// buffer.flip();
-					// System.out.println(new String(buffer.array(), 0, buffer.limit()));
-					// 服务端读到东西后，注册写事件。等写完东西后取消写事件的注册。
-					NioUtil.setOps(key, SelectionKey.OP_WRITE);
-					break;
+				// Object content = coderResult.getContent();
+				// ByteBuffer responseMessage = (ByteBuffer) coderParserManager.encode(content);
+				// socketChannelCtx.getChannel().write(responseMessage);
+				// // buffer.flip();
+				// // System.out.println(new String(buffer.array(), 0, buffer.limit()));
+				// // 服务端读到东西后，注册写事件。等写完东西后取消写事件的注册。
+				// NioUtil.setOps(key, SelectionKey.OP_WRITE);
+				case UNKNOWN:
+				case ERROR:
 				default:
 					// TODO throw
 					break;
@@ -141,9 +145,9 @@ public abstract class AbstractISocketChannel implements ISocketChannel {
 			}
 
 		} catch (Exception e) {
-			coderParser.error(buffer);
 			// 链路关闭，不清理读操作会造成死循环
-			NioUtil.clearOps(key, SelectionKey.OP_READ);
+			NioUtil.clearOps(key, SelectionKey.OP_READ);			
+			coderParserManager.error(buffer, socketChannelCtx);
 			try {
 				clientChannel.close();
 			} catch (IOException e1) {

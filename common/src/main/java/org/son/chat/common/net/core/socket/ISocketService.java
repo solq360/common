@@ -1,4 +1,4 @@
-package org.son.chat.common.net.core;
+package org.son.chat.common.net.core.socket;
 
 /**
  * socket 服务接口

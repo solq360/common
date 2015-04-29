@@ -2,17 +2,14 @@ package org.son.chat.common;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.Date;
-import java.util.Timer;
-import java.util.TimerTask;
 
-import org.son.chat.common.net.ClientSocket;
-import org.son.chat.common.net.util.NioUtil;
+import org.son.chat.common.net.core.coder.impl.CoderParser;
+import org.son.chat.common.net.core.coder.impl.CoderParserManager;
+import org.son.chat.common.net.core.socket.impl.ClientSocket;
+import org.son.chat.common.protocol.PackageDefaultCoder;
 
 /**
  * java nio selector 与 Channel 组合 技术
@@ -29,60 +26,14 @@ public class TestNioServer extends ClientSocket {
 			socketChannel.configureBlocking(false);
 			socketChannel.bind(new InetSocketAddress(6969));
 			socketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+			coderParserManager = new CoderParserManager();
+			coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
+
 			this.close = false;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-
-	@Override
-	protected void handleRead(final SelectionKey key) {
-		System.out.println(" handleRead ");
-		final SocketChannel clientChannel = (SocketChannel) key.channel();
-		ByteBuffer buffer = ByteBuffer.allocate(1024 * 4);
-
-		try {
-			buffer.clear();
-			long bytesRead = clientChannel.read(buffer);
-			if (bytesRead == -1) {
-
-			} else {
-				Timer timer = new Timer();
-				timer.scheduleAtFixedRate(new TimerTask() {
-
-					@Override
-					public void run() {
-						for (int i = 0; i < 10; i++) {
-							try {
-								testWrite(clientChannel, i);
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
-						NioUtil.setOps(key, SelectionKey.OP_WRITE);
-						System.out.println(" push message");
-					}
-				}, new Date(), 5000L);
-
-			}
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			NioUtil.clearOps(key, SelectionKey.OP_READ);
-			try {
-				clientChannel.close();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
-		}
-
-	}
-
-	private void testWrite(SocketChannel channel, int i) throws IOException {
-		ByteBuffer buffer = ByteBuffer.allocate(1024 * 4);
-		buffer.put(("a" + i).getBytes());
-		buffer.flip();
-		channel.write(buffer);
 	}
 
 	public static void main(String[] args) {

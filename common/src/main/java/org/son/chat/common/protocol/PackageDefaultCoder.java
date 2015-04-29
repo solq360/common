@@ -1,0 +1,89 @@
+package org.son.chat.common.protocol;
+
+import java.nio.ByteBuffer;
+
+import org.son.chat.common.net.core.coder.IPackageCoder;
+import org.son.chat.common.net.core.coder.IcoderCtx;
+import org.son.chat.common.net.util.ByteHelper;
+
+/**
+ * 包封装 [包头标识] + [包长度] + [包内容] 校验值暂时不处理
+ * @author solq
+ */
+public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
+
+	/** 包头标识 **/
+	private byte[] HEAD_MARK = { 1, 0 };
+	/** 请求包最大长度 **/
+	private int MAX_REQUEST_LENGTH = 1024 * 1024 * 5;
+
+	// //////////////////////静态构造//////////////////////////////
+	public static PackageDefaultCoder valueOf() {
+		PackageDefaultCoder result = new PackageDefaultCoder();
+		return result;
+	}
+
+	public static PackageDefaultCoder valueOf(int maxRequestLength, byte[] headMak) {
+		PackageDefaultCoder result = new PackageDefaultCoder();
+		result.HEAD_MARK = headMak;
+		result.MAX_REQUEST_LENGTH = maxRequestLength;
+		return result;
+	}
+
+	/**
+	 * 将消息打包给NIO 发送
+	 */
+	@Override
+	public ByteBuffer encode(byte[] value, IcoderCtx ctx) {
+		final int bufSize = HEAD_MARK.length + 4 + value.length;
+		ByteBuffer bb = ByteBuffer.allocate(bufSize);
+		bb.put(HEAD_MARK);
+		bb.putInt(value.length);
+		bb.put(value);
+		return bb;
+	}
+
+	/**
+	 * 把包提取出消息给下一次解码器处理
+	 */
+	@Override
+	public byte[] decode(ByteBuffer value, IcoderCtx ctx) {
+		// 是否外部做标记？
+		value.mark();
+		// 包长度判断
+		// 草，getInt 不会移动索引
+		final int bodyLen = value.getInt(HEAD_MARK.length);
+		final int readSize = value.limit() - HEAD_MARK.length;
+		// 帖包
+		if (bodyLen > readSize) {
+			value.reset();
+			return null;
+		}
+		byte[] result = new byte[bodyLen];
+		// 不同 ByteBuffer getBytes 的时候不会移动当前索引 真 恶心
+		final int bodyPosition = value.position() + HEAD_MARK.length + 4;
+		value.position(bodyPosition);
+		value.get(result);
+		return result;
+	}
+
+	@Override
+	public boolean verify(ByteBuffer value, IcoderCtx ctx) {
+		// 是否外部做标记？
+		// SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
+		// 已读取标记
+		value.position(0);
+		value.mark();
+		byte[] headMark = new byte[HEAD_MARK.length];
+		value.get(headMark);
+		// 头标识判断
+		final boolean isRight = ByteHelper.contains(headMark, HEAD_MARK);
+		final int bodyLen = value.getInt();
+		if (bodyLen > MAX_REQUEST_LENGTH) {
+			// TODO 非法请求
+		}
+
+		value.reset();
+		return isRight;
+	}
+}

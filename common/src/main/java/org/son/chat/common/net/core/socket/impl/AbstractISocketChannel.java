@@ -14,6 +14,7 @@ import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.coder.impl.CoderResult;
 import org.son.chat.common.net.core.socket.ISocketChannel;
 import org.son.chat.common.net.core.socket.ISocketService;
+import org.son.chat.common.net.exception.CoderException;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
 
@@ -157,8 +158,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 		try {
 			buffer = socketChannelCtx.readBegin();
 			bytesRead = clientChannel.read(buffer);
-			socketChannelCtx.addWriteIndex(bytesRead);
-			NioUtil.setOps(key, SelectionKey.OP_READ);
+			socketChannelCtx.readEnd(bytesRead);
 
 		} catch (Exception e) {
 			// 链路关闭，不清理读操作会造成死循环
@@ -177,19 +177,34 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 			if (bytesRead == -1) {
 				coderParserManager.error(buffer, socketChannelCtx);
 			} else {
-				CoderResult coderResult = coderParserManager.decode(buffer, socketChannelCtx);
-				switch (coderResult.getValue()) {
-				case SUCCEED:
-					// clear buffer
-					break;
-				case UNFINISHED: 
-					break;
-				case UNKNOWN:
-				case ERROR:
-				default:
-					// TODO throw
-					break;
+				boolean run = true;
+				//粘包处理
+				while(run){
+					CoderResult coderResult = coderParserManager.decode(buffer, socketChannelCtx);
+					switch (coderResult.getValue()) {
+					case SUCCEED:
+ 						break;
+					case NOT_FIND_CODER:
+						final int readySize = socketChannelCtx.getWriteIndex() -socketChannelCtx.getCurrPackageIndex();
+						final int headLimit = 1024;
+						if( readySize>= headLimit ){
+							throw new CoderException("未找到编/解码处理器 ");
+						}
+						run=false;
+
+						break;
+					case UNFINISHED: 
+ 					case UNKNOWN:
+					case ERROR:
+					default:
+						run=false;
+						// TODO throw
+						break;
+					}
+					
+					
 				}
+	
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -8,6 +8,8 @@ import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.coder.IHandle;
 import org.son.chat.common.net.core.coder.IPackageCoder;
 import org.son.chat.common.net.core.coder.IcoderCtx;
+import org.son.chat.common.net.core.coder.impl.CoderResult.ResultValue;
+import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
 import org.son.chat.common.net.exception.CoderException;
 
 /**
@@ -20,23 +22,30 @@ public class CoderParserManager implements ICoderParserManager {
 
 	@Override
 	public CoderResult decode(ByteBuffer buffer,IcoderCtx ctx) {
- 
+ 		ByteBuffer readOnlyBuffer = buffer.asReadOnlyBuffer();
 		for (CoderParser coderParser : coderParsers.values()) {
 			final IPackageCoder packageCoder = coderParser.getPackageCoder();
 			final ICoder<?, ?>[] linkCoders = coderParser.getCoders();
 			final IHandle handle = coderParser.getHandle();
-
-			// 包协议处理
-			if (!packageCoder.verify(buffer,ctx)) {
-				continue;
+			Object value =null;
+			synchronized (packageCoder) {
+		 		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
+		 		//已解析完
+		 		if(socketChannelCtx.getCurrPackageIndex()>= readOnlyBuffer.limit()){
+ 					return CoderResult.valueOf(ResultValue.UNFINISHED);
+		 		}
+				// 包协议处理
+				if (!packageCoder.verify(readOnlyBuffer,ctx)) {
+					continue;
+				}
+				// 包解析
+				value = packageCoder.decode(readOnlyBuffer,ctx);
+				if (value == null) {
+					// 包未读完整
+					return CoderResult.valueOf(ResultValue.UNFINISHED);
+				}
 			}
-			// 包解析
-			Object value = packageCoder.decode(buffer,ctx);
-			if (value == null) {
-				// 包未读完整
-				return CoderResult.UNFINISHED();
-			}
-			// 链式处理
+						// 链式处理
 			if (linkCoders != null) {
 				for (ICoder coder : linkCoders) {
 					value = coder.decode(value,ctx);
@@ -48,9 +57,9 @@ public class CoderParserManager implements ICoderParserManager {
 			// 业务解码处理
 			value = handle.decode(value,ctx);
 			handle.handle(value,ctx);
-			return CoderResult.SUCCEED(); 
+			return CoderResult.valueOf(ResultValue.SUCCEED);
 		}
-		throw new CoderException("未找到编/解码处理器 ");
+		return CoderResult.valueOf(ResultValue.NOT_FIND_CODER);
 	}
 
 	@Override

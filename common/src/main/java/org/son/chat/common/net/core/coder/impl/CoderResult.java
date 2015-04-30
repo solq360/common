@@ -13,7 +13,9 @@ public class CoderResult {
 		/** 非法数据 **/
 		ERROR,
 		/** 未知错误 **/
-		UNKNOWN;
+		UNKNOWN,
+		/** 未找到编/解码 **/
+		NOT_FIND_CODER;
 	}
 
 	/** 处理后返回内容 **/
@@ -32,21 +34,12 @@ public class CoderResult {
 		return value;
 	}
 
-	public static CoderResult SUCCEED() {
+	
+	
+	public static CoderResult valueOf(ResultValue resule) {
 		CoderResult result = new CoderResult();
-		result.value = ResultValue.SUCCEED;
+		result.value = resule;
 		return result;
 	}
 
-	public static CoderResult UNFINISHED() {
-		CoderResult result = new CoderResult();
-		result.value = ResultValue.UNFINISHED;
-		return result;
-	}
-
-	public static CoderResult UNKNOWN() {
-		CoderResult result = new CoderResult();
-		result.value = ResultValue.UNKNOWN;
-		return result;
-	}
 }

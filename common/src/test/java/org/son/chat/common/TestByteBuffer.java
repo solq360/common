@@ -33,4 +33,22 @@ public class TestByteBuffer {
 		Assert.assertEquals(3, bb.get(2));
 	}
 
+	@Test
+	public void testSharedBuffer(){
+		ByteBuffer bb = ByteBuffer.allocate(50);
+		bb.put((byte) 1);
+		bb.put((byte) 2);
+		bb.put((byte) 3);
+		
+		ByteBuffer cloneBB=bb.asReadOnlyBuffer();
+		bb.put((byte) 4);
+		
+		Assert.assertEquals(4, cloneBB.get(3));
+		Assert.assertEquals(4, cloneBB.get(3));
+
+		cloneBB.position(3);
+		bb.position(5);
+		Assert.assertEquals(4, cloneBB.get());
+
+	}
 }

@@ -72,14 +72,6 @@ public class SocketChannelCtx implements IcoderCtx {
 		}
 	}
 
-	/**
-	 * 更改NIO 每次读索引
-	 */
-	public synchronized void addWriteIndex(long len) {
-		if (len > 0) {
-			writeIndex += len;
-		}
-	}
 
 	/**
 	 * 标记下一次读数据
@@ -113,6 +105,17 @@ public class SocketChannelCtx implements IcoderCtx {
 			System.out.println("扩容处理 ");
 		}
 		return readBuffer;
+	}
+	
+
+	/**
+	 * 更改NIO 每次读索引
+	 */
+	public synchronized void readEnd(long len) {
+		if (len > 0) {
+			writeIndex += len;
+			readBuffer.limit(writeIndex);
+		}
 	}
 
 	private ByteBuffer createByteBuffer(int maxReadBufferSize) {

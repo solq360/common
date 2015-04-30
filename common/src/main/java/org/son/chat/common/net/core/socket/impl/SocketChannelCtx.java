@@ -2,12 +2,14 @@ package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.coder.IcoderCtx;
 import org.son.chat.common.net.exception.NetException;
+import org.son.chat.common.net.util.NioUtil;
 
 /**
  * 主要负责解码，会话数据
@@ -29,11 +31,11 @@ public class SocketChannelCtx implements IcoderCtx {
 	/******** jdk nio socket channel ************/
 	private SocketChannel channel;
 	/******** jdk nio byteBuffer ************/
-
+	private ByteBuffer readBuffer;
+	/******** jdk nio channel selectionKey ************/
+	private SelectionKey selectionKey;
 	private int maxReadBufferSize = 1024 * 20;
 	private int minReadBufferSize = 1024 * 8;
-
-	private ByteBuffer readBuffer;
 
 	/** 编/解器管理器 */
 	private ICoderParserManager coderParserManager;
@@ -42,16 +44,37 @@ public class SocketChannelCtx implements IcoderCtx {
 
 	private int currPackageIndex = 0;
 
+	/**
+	 * nio channel 发送真恶心.... <br>
+	 * 发送数据参考 http://ericbaner.iteye.com/blog/1821798
+	 */
 	public void send(Object message) {
 		ByteBuffer sendMessage = coderParserManager.encode(message, this);
 		sendMessage.flip();
+
 		try {
-			this.channel.write(sendMessage);
+			while (sendMessage.hasRemaining()) {
+				int len = this.channel.write(sendMessage);
+				if (len < 0) {
+					throw new NetException("发送消息出错 :" + len);
+				}
+
+				if (len == 0) {
+					System.out.println("send end");
+					NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
+					// selector.wakeup();
+					break;
+				}
+			}
 		} catch (IOException e) {
+			coderParserManager.error(sendMessage, this);
 			throw new NetException("发送消息出错 :", e);
 		}
 	}
 
+	/**
+	 * 更改NIO 每次读索引
+	 */
 	public synchronized void addWriteIndex(long len) {
 		if (len > 0) {
 			writeIndex += len;
@@ -116,6 +139,14 @@ public class SocketChannelCtx implements IcoderCtx {
 
 	public Selector getSelector() {
 		return selector;
+	}
+
+	public SelectionKey getSelectionKey() {
+		return selectionKey;
+	}
+
+	public void setSelectionKey(SelectionKey selectionKey) {
+		this.selectionKey = selectionKey;
 	}
 
 }

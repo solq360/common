@@ -18,15 +18,27 @@ public class SocketChannelConfig {
 		return remoteAddress;
 	}
 
-	public static SocketChannelConfig valueOf(int remotePort) {
+	public static SocketChannelConfig valueOfRemote(int remotePort) {
 		SocketChannelConfig result = new SocketChannelConfig();
 		result.remoteAddress = new InetSocketAddress(remotePort);
 		return result;
 	}
 
-	public static SocketChannelConfig valueOf(String remoteHost, int remotePort) {
+	public static SocketChannelConfig valueOfRemote(String remoteHost, int remotePort) {
 		SocketChannelConfig result = new SocketChannelConfig();
 		result.remoteAddress = new InetSocketAddress(remoteHost, remotePort);
 		return result;
 	}
+	
+	public static SocketChannelConfig valueOfLocal(int localPort) {
+		SocketChannelConfig result = new SocketChannelConfig();
+		result.localAddress = new InetSocketAddress(localPort);
+		return result;
+	}
+	public static SocketChannelConfig valueOfLocal(String localHost, int localPort) {
+		SocketChannelConfig result = new SocketChannelConfig();
+		result.localAddress = new InetSocketAddress(localHost, localPort);
+		return result;
+	}
+	
 }

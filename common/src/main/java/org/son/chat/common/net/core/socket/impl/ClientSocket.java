@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.Iterator;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.impl.CoderParser;
@@ -31,33 +30,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	// private Date heartbeatTime = new Date();
 	private boolean connected = false;
 	private SocketChannel channel;
-
-	@Override
-	public void start() {
-		init();
-		while (!close) {
-			try {
-				int n = selector.select(10);
-				if (n < 0) {
-					continue;
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-				break;
-			}
-			for (Iterator<SelectionKey> i = selector.selectedKeys().iterator(); i.hasNext();) {
-				// 得到下一个Key
-				SelectionKey key = i.next();
-				try {
-					handle(key);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-				i.remove();
-			}
-		}
-		stop();
-	}
 
 	@Override
 	public void stop() {
@@ -118,6 +90,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		}
 		SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, channel, this.coderParserManager);
 		SelectionKey sk = channel.register(this.selector, 0, ctx);
+		ctx.setSelectionKey(sk);
 		NioUtil.setOps(sk, SelectionKey.OP_READ);
 		this.close = false;
 

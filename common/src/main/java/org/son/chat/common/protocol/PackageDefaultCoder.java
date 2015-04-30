@@ -60,6 +60,11 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 			value.reset();
 			return null;
 		}
+		// TODO
+		if (bodyLen > MAX_REQUEST_LENGTH) {
+			// TODO 非法请求
+		}
+
 		byte[] result = new byte[bodyLen];
 		// 不同 ByteBuffer getBytes 的时候不会移动当前索引 真 恶心
 		final int bodyPosition = value.position() + HEAD_MARK.length + 4;
@@ -78,16 +83,11 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 		// 是否外部做标记？
 		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
 		value.position(socketChannelCtx.getCurrPackageIndex());
-  		value.mark();
- 		byte[] headMark = new byte[HEAD_MARK.length];
+		value.mark();
+		byte[] headMark = new byte[HEAD_MARK.length];
 		value.get(headMark);
 		// 头标识判断
 		final boolean isRight = ByteHelper.contains(headMark, HEAD_MARK);
-		final int bodyLen = value.getInt();
-		if (bodyLen > MAX_REQUEST_LENGTH) {
-			// TODO 非法请求
-		}
-
 		value.reset();
 		return isRight;
 	}

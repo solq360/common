@@ -50,17 +50,19 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 	@Override
 	public byte[] decode(ByteBuffer value, IcoderCtx ctx) {
  		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
-		value.position(socketChannelCtx.getCurrPackageIndex());
+		value.reset();
 		// 包长度判断
-		final int readSize = value.limit() - HEAD_MARK.length;
+		final int readSize = value.remaining() - HEAD_MARK.length;
 		//半包
 		if(readSize <=0){
 			return null;
 		}
+ 
 		// 草，getInt 不会移动索引
-		final int bodyLen = value.getInt(HEAD_MARK.length);
+		final int bodyLen = value.getInt(value.position()+HEAD_MARK.length);
 		// 半包
 		if (bodyLen > readSize) {
+			System.out.println("半包");
   			return null;
 		}
 		// TODO
@@ -75,24 +77,25 @@ public class PackageDefaultCoder implements IPackageCoder<byte[], ByteBuffer> {
 		value.get(result);
 
 		final int used = HEAD_MARK.length + 4 + bodyLen;
-		// 更新已读索引
+  		// 更新已读索引
  		socketChannelCtx.nextPackageIndex(used);
 		return result;
 	}
 
 	@Override
 	public boolean verify(ByteBuffer value, IcoderCtx ctx) {
- 		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
-		value.position(socketChannelCtx.getCurrPackageIndex());
- 		
+		value.reset();
+		// 包长度判断
+		final int readSize = value.remaining() - HEAD_MARK.length;
+		//半包
+		if(readSize <=0){
+			return false;
+		}
  		byte[] headMark = new byte[HEAD_MARK.length];
 		value.get(headMark);
 		// 头标识判断
 		final boolean isRight = ByteHelper.contains(headMark, HEAD_MARK);
- 		if(!isRight){
-			System.out.println(" not his " + socketChannelCtx.getCurrPackageIndex() );
-			System.out.println("  " +( value.limit()  ) );
-		}
 		return isRight;
 	}
+	
 }

@@ -1,6 +1,7 @@
 package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -30,7 +31,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	// private Date heartbeatTime = new Date();
 	private boolean connected = false;
 	private SocketChannel channel;
-
+	private String sessionId;
 	@Override
 	public void stop() {
 		if (selector != null && selector.isOpen()) {
@@ -61,6 +62,10 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		// } catch (IOException e) {
 		// e.printStackTrace();
 		// }
+	}
+	@Override
+	public void send(ByteBuffer byteBuffer) {
+ 		
 	}
 
 	@Override
@@ -97,5 +102,17 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		ctx.send("连接服务器成功");
 		NioUtil.setOps(sk, SelectionKey.OP_WRITE);
 	}
+
+	@Override
+	public void setSessionId(String id) {
+ 		sessionId=id;
+	}
+
+	@Override
+	public String getSessionId() {
+ 		return sessionId;
+	}
+
+
 
 }

@@ -118,11 +118,11 @@ public abstract class ByteHelper {
 			if (B[0] == A[lastIndex]) {
 				// next
 				for (int n = 1; n < B.length; n++) {
+					lastIndex++;
 					if (lastIndex >= A.length) {
 						return -1;
 					}
-					lastIndex++;
-					if (B[n] != A[lastIndex]) {
+ 					if (B[n] != A[lastIndex]) {
 						continue TO;
 					}
 				}

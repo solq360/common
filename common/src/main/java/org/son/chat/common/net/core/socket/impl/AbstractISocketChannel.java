@@ -165,6 +165,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 			NioUtil.clearOps(key, SelectionKey.OP_READ);
 			coderParserManager.error(buffer, socketChannelCtx);
 			try {
+				key.cancel();
 				clientChannel.close();
 			} catch (IOException e1) {
 				throw new NetException("关闭Socket异常 : ", e1);
@@ -180,7 +181,9 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 				boolean run = true;
 				//粘包处理
 				while(run){
-					CoderResult coderResult = coderParserManager.decode(buffer, socketChannelCtx);
+					ByteBuffer cpbuffer=socketChannelCtx.coderBegin();
+					cpbuffer.mark();
+					CoderResult coderResult = coderParserManager.decode(cpbuffer, socketChannelCtx);
 					switch (coderResult.getValue()) {
 					case SUCCEED:
  						break;

@@ -1,11 +1,11 @@
 package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
 
 import org.son.chat.common.ChatTestServerHandle;
 import org.son.chat.common.net.config.SocketChannelConfig;
@@ -34,7 +34,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 
 	private ServerSocketChannel socketChannel;
 	/** 已连接的客户端 */
-	private Map<String, ClientSocket> clients = new ConcurrentHashMap<>();
+	private ClientPipeChannel channelClients = new ClientPipeChannel();
 
 	@Override
 	public void init() {
@@ -74,10 +74,31 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	}
 
 	@Override
-	public void sendAll(Object msg) {
-		for (ClientSocket s : clients.values()) {
-			s.send(msg);
+	public void sendAll(Object message) {
+		ByteBuffer byteBuffer =coderParserManager.encode(message, null);
+		List<ClientSocket>  clients=channelClients.getAllClinetSockets();
+		for(ClientSocket client : clients){
+			send(client, byteBuffer);
 		}
+	}
+
+	@Override
+	public void send(String channelName, Object message) {
+		ByteBuffer byteBuffer =coderParserManager.encode(message, null);
+		List<ClientSocket>  clients=channelClients.getChannelClinetSockets(channelName);
+		for(ClientSocket client : clients){
+			send(client, byteBuffer);
+		}
+ 	}
+
+	@Override
+	public void send(ClientSocket clientSocket, Object message) {
+		clientSocket.send(message);
+	}
+
+	@Override
+	public void send(ClientSocket clientSocket, ByteBuffer byteBuffer) {
+		clientSocket.send(byteBuffer);
 	}
 
 }

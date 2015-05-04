@@ -22,24 +22,23 @@ public class CoderParserManager implements ICoderParserManager {
 
 	@Override
 	public CoderResult decode(ByteBuffer buffer,IcoderCtx ctx) {
- 		ByteBuffer readOnlyBuffer = buffer.asReadOnlyBuffer();
-		for (CoderParser coderParser : coderParsers.values()) {
+ 		for (CoderParser coderParser : coderParsers.values()) {
 			final IPackageCoder packageCoder = coderParser.getPackageCoder();
 			final ICoder<?, ?>[] linkCoders = coderParser.getCoders();
 			final IHandle handle = coderParser.getHandle();
 			Object value =null;
-			synchronized (packageCoder) {
+			synchronized (buffer) {
 		 		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
 		 		//已解析完
-		 		if(socketChannelCtx.getCurrPackageIndex()>= readOnlyBuffer.limit()){
+		 		if(socketChannelCtx.getCurrPackageIndex()>= buffer.limit()){
  					return CoderResult.valueOf(ResultValue.UNFINISHED);
 		 		}
 				// 包协议处理
-				if (!packageCoder.verify(readOnlyBuffer,ctx)) {
+				if (!packageCoder.verify(buffer,ctx)) {
 					continue;
 				}
 				// 包解析
-				value = packageCoder.decode(readOnlyBuffer,ctx);
+				value = packageCoder.decode(buffer,ctx);
 				if (value == null) {
 					// 包未读完整
 					return CoderResult.valueOf(ResultValue.UNFINISHED);

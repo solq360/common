@@ -13,11 +13,13 @@ import org.son.chat.common.net.util.NioUtil;
 
 /**
  * 主要负责解码，会话数据
+ * 
  * @author solq
  */
 public class SocketChannelCtx implements IcoderCtx {
 
-	public static SocketChannelCtx valueOf(Selector selector, SocketChannel channel, ICoderParserManager coderParserManager) {
+	public static SocketChannelCtx valueOf(Selector selector,
+			SocketChannel channel, ICoderParserManager coderParserManager) {
 		SocketChannelCtx result = new SocketChannelCtx();
 		result.selector = selector;
 		result.channel = channel;
@@ -37,6 +39,8 @@ public class SocketChannelCtx implements IcoderCtx {
 	private int maxReadBufferSize = 1024 * 20;
 	private int minReadBufferSize = 1024 * 8;
 
+	private final static int MIN_MUT = 1422;
+	private final static int DOUBLE_MUT = MIN_MUT * 2;
 	/** 编/解器管理器 */
 	private ICoderParserManager coderParserManager;
 
@@ -59,8 +63,9 @@ public class SocketChannelCtx implements IcoderCtx {
 					throw new NetException("发送消息出错 :" + len);
 				}
 
+				// 写半包处理
 				if (len == 0) {
-					System.out.println("send end");
+					System.out.println("写半包");
 					NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
 					// selector.wakeup();
 					break;
@@ -71,7 +76,6 @@ public class SocketChannelCtx implements IcoderCtx {
 			throw new NetException("发送消息出错 :", e);
 		}
 	}
-
 
 	/**
 	 * 标记下一次读数据
@@ -90,23 +94,73 @@ public class SocketChannelCtx implements IcoderCtx {
 		readBuffer.position(writeIndex);
 
 		final int unUseSize = readBuffer.capacity() - writeIndex;
+		boolean isExt = false;
+		int bufferSize = maxReadBufferSize;
 
-		System.out.println("read writeIndex  :" + writeIndex);
+		// 剩余容量低于最少边界
+		if (DOUBLE_MUT > unUseSize) {
+			// 2倍方式扩容
+			final int usePackageSize = writeIndex - this.currPackageIndex;
+			final int doubleUsePackageSize = usePackageSize * 2;
+			if (doubleUsePackageSize > readBuffer.capacity()) {
+				bufferSize = readBuffer.capacity() << 1;
+			} else {
+				bufferSize = Math.max(doubleUsePackageSize, maxReadBufferSize);
+			}
+			isExt = true;
+			// try {
+			// System.out.println("扩容处理 : new size " + bufferSize + " un size :"
+			// + unUseSize);
+			// Thread.sleep(2000);
+			// } catch (InterruptedException e) {
+			// e.printStackTrace();
+			// }
+		} else if (unUseSize > maxReadBufferSize) { // 剩余容量高于最大边界 缩容处理
+			final int usePackageSize = writeIndex - this.currPackageIndex;
+			final int doubleUsePackageSize = usePackageSize * 2;
+			if (maxReadBufferSize > doubleUsePackageSize) {
+				bufferSize = maxReadBufferSize;
+				isExt = true;
 
-		// 扩容处理
-		if (minReadBufferSize > unUseSize) {
-			// 计算容量
-			final int bufferSize = this.maxReadBufferSize;
-			ByteBuffer newReadBuffer = createByteBuffer(bufferSize);
-			newReadBuffer.put(readBuffer.array(), writeIndex, readBuffer.limit() - writeIndex);
-			writeIndex = 0;
-			currPackageIndex = 0;
-			readBuffer = newReadBuffer;
-			System.out.println("扩容处理 ");
+				// try {
+				// System.out.println("减容处理 : new size" + bufferSize );
+				// Thread.sleep(2000);
+				// } catch (InterruptedException e) {
+				// e.printStackTrace();
+				// }
+			}
 		}
+
+		if (isExt) {
+			extendByteBuffer(bufferSize);
+		}
+
 		return readBuffer;
 	}
-	
+
+	private void extendByteBuffer(int bufferSize) {
+		ByteBuffer newReadBuffer = createByteBuffer(bufferSize);
+		// 从最后包标记开始复制
+		newReadBuffer.put(readBuffer.array(), this.currPackageIndex,
+				this.writeIndex - this.currPackageIndex);
+		writeIndex = 0;
+		currPackageIndex = 0;
+		readBuffer = newReadBuffer;
+	}
+
+	public synchronized ByteBuffer coderBegin() {
+		readBuffer.clear().position(currPackageIndex).limit(writeIndex);
+		return readBuffer.asReadOnlyBuffer();
+	}
+
+	// 模拟socket read
+	public synchronized int readBuffer(ByteBuffer buffer) {
+		buffer.flip();
+		readBuffer.clear();
+		readBuffer.position(writeIndex);
+		readBuffer.put(buffer);
+		return buffer.limit();
+	}
 
 	/**
 	 * 更改NIO 每次读索引

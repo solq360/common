@@ -13,6 +13,8 @@ import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.handle.ClientManagerHandle;
 import org.son.chat.common.net.core.handle.ISocketHandle;
 import org.son.chat.common.net.core.handle.PipeHandle;
+import org.son.chat.common.net.core.session.ISession;
+import org.son.chat.common.net.core.session.ISessionFactory;
 import org.son.chat.common.net.core.socket.IServerSocketService;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
@@ -26,14 +28,16 @@ import org.son.chat.common.net.util.NioUtil;
  */
 public class ServerSocket extends AbstractISocketChannel implements IServerSocketService {
 
-    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager) {
+    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager,ISessionFactory sessionFactory) {
 	ServerSocket serverSocket = new ServerSocket();
 	serverSocket.socketChannelConfig = socketChannelConfig;
 	serverSocket.coderParserManager = coderParserManager;
+	serverSocket.sessionFactory = sessionFactory;
 	return serverSocket;
     }
 
     private ServerSocketChannel socketChannel;
+    private ISessionFactory sessionFactory;
     /** 已连接的客户端 */
     private ClientPipeChannel channelClients = new ClientPipeChannel();
     private Thread shutdownHook;
@@ -148,6 +152,11 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	((PipeHandle) handle).register(handle);
     }
 
+    @Override
+    public ISession createSession() {
+	return sessionFactory.createSession();
+    }
+    
     private void registerShutdownHook() {
 	if (this.shutdownHook == null) {
 	    this.shutdownHook = new Thread() {
@@ -159,5 +168,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    Runtime.getRuntime().addShutdownHook(this.shutdownHook);
 	}
     }
+
+
 
 }

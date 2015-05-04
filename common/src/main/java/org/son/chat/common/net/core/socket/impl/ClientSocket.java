@@ -10,6 +10,7 @@ import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.ICoderCtx;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.handle.ISocketHandle;
+import org.son.chat.common.net.core.session.ISession;
 import org.son.chat.common.net.core.socket.IClientSocketService;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
@@ -25,7 +26,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	clientSocket.socketChannelConfig = socketChannelConfig;
 	clientSocket.coderParserManager = coderParserManager;
 	clientSocket.handle = socketHandle;
-
 	clientSocket.ctx = SocketChannelCtx.valueOf(clientSocket);
 	return clientSocket;
     }
@@ -50,6 +50,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
     private SocketChannel channel;
     private SelectionKey selectionKey;
+    private ISession session;
 
     @Override
     public void stop() {
@@ -79,7 +80,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	ctx = null;
 	channel = null;
 	selectionKey = null;
-
+	session = null;
 	super.stop();
     }
 
@@ -150,6 +151,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
 	} catch (IOException e) {
 	    e.printStackTrace();
+	    this.openError(ctx);
 	    stop();
 	}
     }
@@ -253,5 +255,10 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
     public SocketChannelCtx getCtx() {
 	return ctx;
+    }
+
+    @Override
+    public void bindSession(ISession Session) {
+	this.session = Session;
     }
 }

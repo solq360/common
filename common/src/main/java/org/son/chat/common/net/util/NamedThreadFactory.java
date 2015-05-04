@@ -5,21 +5,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 可命名线程
+ * 
  * @author solq
  */
 public class NamedThreadFactory implements ThreadFactory {
 
-	private final String name;
-	private final AtomicInteger count = new AtomicInteger();
+    private final String name;
+    private final AtomicInteger count = new AtomicInteger();
 
-	public NamedThreadFactory(String name) {
-		this.name = name;
-	}
+    public NamedThreadFactory(String name) {
+	this.name = name;
+    }
 
-	@Override
-	public Thread newThread(Runnable r) {
-		final String name = this.name + ":" + count.getAndIncrement();
-		return new Thread(r, name);
-	}
+    @Override
+    public Thread newThread(Runnable r) {
+	final String name = this.name + ":" + count.getAndIncrement();
+	return new Thread(r, name);
+    }
 
 }

@@ -12,12 +12,11 @@ import org.son.chat.common.protocol.PackageDefaultCoder;
  * @author solq
  */
 public class TestNioServer {
-	@Test
-	public void normal() {
-		ICoderParserManager coderParserManager = new CoderParserManager();
-		coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
-
-		ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager).start();
-	}
+    @Test
+    public void normal() {
+	ICoderParserManager coderParserManager = new CoderParserManager();
+	coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
+	ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager).start();
+    }
 
 }

@@ -12,11 +12,13 @@ import org.son.chat.common.net.util.NamedThreadFactory;
  * @author solq
  */
 public class SocketPool implements ISocketPool {
-	private ExecutorService pool = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().availableProcessors() * 2, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory("Socket"));
 
+ 	private ExecutorService pool ;
+	public SocketPool (String name){
+ 		this.pool = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().availableProcessors() * 2, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(name));
+	}
 	@Override
 	public void execute(Runnable task) {
 		pool.execute(task);
 	}
-
 }

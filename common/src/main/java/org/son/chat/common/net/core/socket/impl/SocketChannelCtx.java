@@ -2,144 +2,150 @@ package org.son.chat.common.net.core.socket.impl;
 
 import java.nio.ByteBuffer;
 
-import org.son.chat.common.net.core.coder.IcoderCtx;
+import org.son.chat.common.net.core.coder.ICoderCtx;
 
 /**
- * 主要负责解码，会话数据
+ * 主要负责记录读取包索引，会话数据等
+ * 
  * @author solq
  */
-public class SocketChannelCtx implements IcoderCtx {
+public class SocketChannelCtx implements ICoderCtx {
 
-	public static SocketChannelCtx valueOf(ClientSocket clientSocket) {
-		SocketChannelCtx result = new SocketChannelCtx();
-		result.clientSocket = clientSocket;
-		result.readBuffer = result.createByteBuffer(result.maxReadBufferSize);
- 		return result;
+    public static SocketChannelCtx valueOf(ClientSocket clientSocket) {
+	SocketChannelCtx result = new SocketChannelCtx();
+	result.clientSocket = clientSocket;
+	result.readBuffer = result.createByteBuffer(result.maxReadBufferSize);
+	return result;
+    }
+
+    /******** jdk nio byteBuffer ************/
+    private ByteBuffer readBuffer;
+
+    private ClientSocket clientSocket;
+    private int maxReadBufferSize = 1024 * 20;
+    private int minReadBufferSize = 1024 * 8;
+
+    private final static int MIN_MUT = 1422;
+    private final static int DOUBLE_MUT = MIN_MUT * 2;
+    /** socket read 索引 */
+    private int writeIndex = 0;
+
+    /** 包索引 */
+    private int currPackageIndex = 0;
+
+    public void send(Object message) {
+	clientSocket.send(message);
+    }
+
+    public void close() {
+	clientSocket.close(this);
+    }
+
+    /**
+     * 更改下个数据包索引
+     */
+    public synchronized void nextPackageIndex(long len) {
+	if (len > 0) {
+	    currPackageIndex += len;
+	}
+    }
+
+    /**
+     * 准备开始读数据处理
+     */
+    public synchronized ByteBuffer readBegin() {
+	readBuffer.clear();
+	readBuffer.position(writeIndex);
+
+	final int unUseSize = readBuffer.capacity() - writeIndex;
+	boolean isExt = false;
+	int bufferSize = maxReadBufferSize;
+
+	// 剩余容量低于最少边界
+	if (DOUBLE_MUT > unUseSize) {
+	    // 2倍方式扩容
+	    final int usePackageSize = writeIndex - this.currPackageIndex;
+	    final int doubleUsePackageSize = usePackageSize * 2;
+	    if (doubleUsePackageSize > readBuffer.capacity()) {
+		bufferSize = readBuffer.capacity() << 1;
+	    } else {
+		bufferSize = Math.max(doubleUsePackageSize, maxReadBufferSize);
+	    }
+	    isExt = true;
+
+	} else if (unUseSize > maxReadBufferSize) { // 剩余容量高于最大边界 缩容处理
+	    final int usePackageSize = writeIndex - this.currPackageIndex;
+	    final int doubleUsePackageSize = usePackageSize * 2;
+	    if (maxReadBufferSize > doubleUsePackageSize) {
+		bufferSize = maxReadBufferSize;
+		isExt = true;
+	    }
 	}
 
-	/******** jdk nio byteBuffer ************/
-	private ByteBuffer readBuffer;
-
-	private ClientSocket clientSocket;
-	private int maxReadBufferSize = 1024 * 20;
-	private int minReadBufferSize = 1024 * 8;
-
-	private final static int MIN_MUT = 1422;
-	private final static int DOUBLE_MUT = MIN_MUT * 2;
-
-	private int writeIndex = 0;
-
-	private int currPackageIndex = 0;
-
-	public void send(Object message) {
-		clientSocket.send(message);
+	if (isExt) {
+	    extendByteBuffer(bufferSize);
 	}
 
-	/**
-	 * 标记下一次读数据
-	 */
-	public synchronized void nextPackageIndex(long len) {
-		if (len > 0) {
-			currPackageIndex += len;
-		}
+	return readBuffer;
+    }
+
+    private void extendByteBuffer(int bufferSize) {
+	ByteBuffer newReadBuffer = createByteBuffer(bufferSize);
+	// 从最后包标记开始复制
+	newReadBuffer.put(readBuffer.array(), this.currPackageIndex, this.writeIndex - this.currPackageIndex);
+	writeIndex = 0;
+	currPackageIndex = 0;
+	readBuffer = newReadBuffer;
+    }
+
+    public synchronized ByteBuffer coderBegin() {
+	readBuffer.clear().position(currPackageIndex).limit(writeIndex);
+	return readBuffer.asReadOnlyBuffer();
+    }
+
+    // 模拟socket read
+    public synchronized int readBuffer(ByteBuffer buffer) {
+	buffer.flip();
+	readBuffer.clear();
+	readBuffer.position(writeIndex);
+	readBuffer.put(buffer);
+	return buffer.limit();
+    }
+
+    /**
+     * 更改NIO 每次读索引
+     */
+    public synchronized void readEnd(long len) {
+	if (len > 0) {
+	    writeIndex += len;
+	    readBuffer.limit(writeIndex);
 	}
+    }
 
-	/**
-	 * 准备开始读数据处理
-	 */
-	public synchronized ByteBuffer readBegin() {
-		readBuffer.clear();
-		readBuffer.position(writeIndex);
+    private ByteBuffer createByteBuffer(int maxReadBufferSize) {
+	return ByteBuffer.allocate(maxReadBufferSize);
+    }
 
-		final int unUseSize = readBuffer.capacity() - writeIndex;
-		boolean isExt = false;
-		int bufferSize = maxReadBufferSize;
+    // getter
 
-		// 剩余容量低于最少边界
-		if (DOUBLE_MUT > unUseSize) {
-			// 2倍方式扩容
-			final int usePackageSize = writeIndex - this.currPackageIndex;
-			final int doubleUsePackageSize = usePackageSize * 2;
-			if (doubleUsePackageSize > readBuffer.capacity()) {
-				bufferSize = readBuffer.capacity() << 1;
-			} else {
-				bufferSize = Math.max(doubleUsePackageSize, maxReadBufferSize);
-			}
-			isExt = true;
+    public int getWriteIndex() {
+	return writeIndex;
+    }
 
-		} else if (unUseSize > maxReadBufferSize) { // 剩余容量高于最大边界 缩容处理
-			final int usePackageSize = writeIndex - this.currPackageIndex;
-			final int doubleUsePackageSize = usePackageSize * 2;
-			if (maxReadBufferSize > doubleUsePackageSize) {
-				bufferSize = maxReadBufferSize;
-				isExt = true;
-			}
-		}
+    public int getMaxReadBufferSize() {
+	return maxReadBufferSize;
+    }
 
-		if (isExt) {
-			extendByteBuffer(bufferSize);
-		}
+    public int getMinReadBufferSize() {
+	return minReadBufferSize;
+    }
 
-		return readBuffer;
-	}
+    public int getCurrPackageIndex() {
+	return currPackageIndex;
+    }
 
-	private void extendByteBuffer(int bufferSize) {
-		ByteBuffer newReadBuffer = createByteBuffer(bufferSize);
-		// 从最后包标记开始复制
-		newReadBuffer.put(readBuffer.array(), this.currPackageIndex, this.writeIndex - this.currPackageIndex);
-		writeIndex = 0;
-		currPackageIndex = 0;
-		readBuffer = newReadBuffer;
-	}
-
-	public synchronized ByteBuffer coderBegin() {
-		readBuffer.clear().position(currPackageIndex).limit(writeIndex);
-		return readBuffer.asReadOnlyBuffer();
-	}
-
-	// 模拟socket read
-	public synchronized int readBuffer(ByteBuffer buffer) {
-		buffer.flip();
-		readBuffer.clear();
-		readBuffer.position(writeIndex);
-		readBuffer.put(buffer);
-		return buffer.limit();
-	}
-
-	/**
-	 * 更改NIO 每次读索引
-	 */
-	public synchronized void readEnd(long len) {
-		if (len > 0) {
-			writeIndex += len;
-			readBuffer.limit(writeIndex);
-		}
-	}
-
-	private ByteBuffer createByteBuffer(int maxReadBufferSize) {
-		return ByteBuffer.allocate(maxReadBufferSize);
-	}
-
-	// getter
-
-	public int getWriteIndex() {
-		return writeIndex;
-	}
-
-	public int getMaxReadBufferSize() {
-		return maxReadBufferSize;
-	}
-
-	public int getMinReadBufferSize() {
-		return minReadBufferSize;
-	}
-
-	public int getCurrPackageIndex() {
-		return currPackageIndex;
-	}
-
-	public ClientSocket getClientSocket() {
-		return clientSocket;
-	}
+    public ClientSocket getClientSocket() {
+	return clientSocket;
+    }
 
 }

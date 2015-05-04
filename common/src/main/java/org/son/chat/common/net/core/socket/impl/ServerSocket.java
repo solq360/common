@@ -7,13 +7,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.util.List;
 
-import org.son.chat.common.ChatTestServerHandle;
 import org.son.chat.common.net.config.SocketChannelConfig;
-import org.son.chat.common.net.core.coder.impl.CoderParser;
-import org.son.chat.common.net.core.coder.impl.CoderParserManager;
+import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.socket.IServerSocketService;
 import org.son.chat.common.net.exception.NetException;
-import org.son.chat.common.protocol.PackageDefaultCoder;
 
 /**
  * 服务端socket 是一个管理多个 客户端 socket 处理 <br>
@@ -23,18 +20,17 @@ import org.son.chat.common.protocol.PackageDefaultCoder;
  */
 public class ServerSocket extends AbstractISocketChannel implements IServerSocketService {
 
-	public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig) {
+	public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager) {
 		ServerSocket serverSocket = new ServerSocket();
 		serverSocket.socketChannelConfig = socketChannelConfig;
-		CoderParserManager coderParserManager = new CoderParserManager();
 		serverSocket.coderParserManager = coderParserManager;
-		coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
 		return serverSocket;
 	}
 
 	private ServerSocketChannel socketChannel;
 	/** 已连接的客户端 */
 	private ClientPipeChannel channelClients = new ClientPipeChannel();
+	private Thread shutdownHook;
 
 	@Override
 	public void init() {
@@ -42,14 +38,27 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 			selector = Selector.open();
 			socketChannel = ServerSocketChannel.open();
 			socketChannel.configureBlocking(false);
-			socketChannel.bind(socketChannelConfig.getLocalAddress());
+			socketChannel.bind(socketChannelConfig.getAddress());
 			socketChannel.register(selector, SelectionKey.OP_ACCEPT);
 			this.close = false;
+			registerShutdownHook();
 		} catch (IOException e) {
 			throw new NetException("初始化 NIO服务器异常 :", e);
 		}
 	}
 
+	private void registerShutdownHook() {
+		if (this.shutdownHook == null) {
+ 			this.shutdownHook = new Thread() {
+				@Override
+				public void run() {
+					 
+				}
+			};
+			Runtime.getRuntime().addShutdownHook(this.shutdownHook);
+		}
+	}
+	
 	@Override
 	public void stop() {
 		if (selector != null && selector.isOpen()) {
@@ -99,6 +108,19 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	@Override
 	public void send(ClientSocket clientSocket, ByteBuffer byteBuffer) {
 		clientSocket.send(byteBuffer);
+	}
+
+	@Override
+	public void registerClientSocket(SocketChannelConfig config) {
+		System.out.println(" handleConnect ");
+		try {
+			ClientSocket clientSocket = ClientSocket.valueOf(config, this.coderParserManager);
+			clientSocket.openServerMode(this.selector);
+			clientSocket.init();
+			open();
+		} catch (Exception e) {
+			throw new NetException("Socket连接异常 : ", e);
+		}
 	}
 
 }

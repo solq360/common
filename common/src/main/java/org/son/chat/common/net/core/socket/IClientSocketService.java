@@ -8,8 +8,11 @@ import java.nio.ByteBuffer;
  */
 public interface IClientSocketService {
 
+	public boolean isClose();
+	public boolean isConected();
 	// //////////////////消息处理行为//////////////////////////
 	public void send(Object message);
-
 	public void send(ByteBuffer byteBuffer);
+	
+	
 }

@@ -131,9 +131,8 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 		System.out.println(" handleAccept ");
 		try {
 			SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
+			ClientSocket clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel, coderParserManager);
 			clientChannel.configureBlocking(false);
-
-			ClientSocket clientSocket = ClientSocket.valueOfServer(socketChannelConfig, clientChannel, coderParserManager);
 			// 必须是新注册的 SelectionKey
 			SelectionKey sk = clientChannel.register(selector, 0, clientSocket.getCtx());
 			clientSocket.setSelectionKey(sk);

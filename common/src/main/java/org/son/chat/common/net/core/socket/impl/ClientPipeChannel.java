@@ -25,15 +25,15 @@ public class ClientPipeChannel  implements IPipeChannel<ClientSocket>{
 		if(channelClients==null){
 			channelClients=new HashMap<String, ClientSocket>();
 		}
- 		final String ip = e.getSocketChannelConfig().getLocalAddress().getAddress().toString();
-		ipMapClients.put(ip, e);
- 		channelClients.put(ip, e);
+// 		final String ip = e.getSocketChannelConfig().getLocalAddress().getAddress().toString();
+//		ipMapClients.put(ip, e);
+// 		channelClients.put(ip, e);
 	}
 
 	@Override
 	public synchronized void eixt(ClientSocket e) {
- 		final String ip = e.getSocketChannelConfig().getLocalAddress().getAddress().toString();
-		ipMapClients.remove(ip);
+// 		final String ip = e.getSocketChannelConfig().getLocalAddress().getAddress().toString();
+//		ipMapClients.remove(ip);
  		
 	}
 

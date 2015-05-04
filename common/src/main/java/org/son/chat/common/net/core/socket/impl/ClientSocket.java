@@ -8,28 +8,21 @@ import java.nio.channels.SocketChannel;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
-import org.son.chat.common.net.core.coder.impl.CoderParser;
-import org.son.chat.common.net.core.coder.impl.CoderParserManager;
 import org.son.chat.common.net.core.socket.IClientSocketService;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
 import org.son.chat.common.net.util.SocketPoolFactory;
-import org.son.chat.common.protocol.ChatHandle;
-import org.son.chat.common.protocol.PackageDefaultCoder;
 
 /**
  * @author solq
  */
 public class ClientSocket extends AbstractISocketChannel implements IClientSocketService {
 
-	public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig) {
+	public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager) {
 		ClientSocket clientSocket = new ClientSocket();
 		clientSocket.socketChannelConfig = socketChannelConfig;
-		CoderParserManager coderParserManager = new CoderParserManager();
 		clientSocket.coderParserManager = coderParserManager;
-		coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
-		SocketChannelCtx ctx = SocketChannelCtx.valueOf(clientSocket);
-		clientSocket.ctx = ctx;
+		clientSocket.ctx = SocketChannelCtx.valueOf(clientSocket);
 		return clientSocket;
 	}
 
@@ -40,9 +33,8 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		clientSocket.socketChannelConfig = socketChannelConfig;
 		clientSocket.connected = true;
 		clientSocket.close = false;
-
-		SocketChannelCtx ctx = SocketChannelCtx.valueOf(clientSocket);
-		clientSocket.ctx = ctx;
+		clientSocket.serverMode = true;
+		clientSocket.ctx = SocketChannelCtx.valueOf(clientSocket);
 		return clientSocket;
 	}
 
@@ -53,9 +45,11 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	private SelectionKey selectionKey;
 	private SocketChannelCtx ctx;
 
+	private boolean serverMode = false;
+
 	@Override
 	public void stop() {
-		if (selector != null && selector.isOpen()) {
+		if (!serverMode && selector != null && selector.isOpen()) {
 			try {
 				selector.close();
 			} catch (IOException e) {
@@ -64,9 +58,12 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 			selector = null;
 			// 业务层通知
 			close();
+		} else if (serverMode) {
+			// 业务层通知
+			close();
 		}
-		close = false;
 
+		close = false;
 		if (channel != null && channel.isConnected()) {
 			try {
 				channel.close();
@@ -94,6 +91,9 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 			@Override
 			public void run() {
 				try {
+					if (ClientSocket.this.close) {
+						return;
+					}
 					while (byteBuffer.hasRemaining()) {
 						int len = ClientSocket.this.channel.write(byteBuffer);
 
@@ -110,7 +110,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 						}
 					}
 				} catch (IOException e) {
-					coderParserManager.error(byteBuffer, null);
+					coderParserManager.error(byteBuffer, ClientSocket.this.ctx);
 					throw new NetException("发送消息出错 :", e);
 				}
 			}
@@ -120,9 +120,11 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	@Override
 	public void init() {
 		try {
-			channel = SocketChannel.open(this.socketChannelConfig.getRemoteAddress());
+			channel = SocketChannel.open(this.socketChannelConfig.getAddress());
 			channel.configureBlocking(false);
-			this.selector = Selector.open();
+			if (!serverMode) {
+				this.selector = Selector.open();
+			}
 			this.connected = channel.isConnected();
 			if (!this.connected) {
 				// this.channel.register(this.selector, SelectionKey.OP_CONNECT);
@@ -149,6 +151,12 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
 	}
 
+	public void openServerMode(Selector selector) {
+		this.serverMode = true;
+		this.selector = selector;
+	}
+
+	// getter
 	public SocketChannelCtx getCtx() {
 		return ctx;
 	}
@@ -159,6 +167,24 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
 	public void setSelectionKey(SelectionKey selectionKey) {
 		this.selectionKey = selectionKey;
+	}
+
+	public boolean isConnected() {
+		return connected;
+	}
+
+	public boolean isServerMode() {
+		return serverMode;
+	}
+
+	@Override
+	public boolean isClose() {
+		return this.close;
+	}
+
+	@Override
+	public boolean isConected() {
+		return this.connected;
 	}
 
 }

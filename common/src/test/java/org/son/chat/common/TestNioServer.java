@@ -1,15 +1,23 @@
 package org.son.chat.common;
 
+import org.junit.Test;
 import org.son.chat.common.net.config.SocketChannelConfig;
+import org.son.chat.common.net.core.coder.ICoderParserManager;
+import org.son.chat.common.net.core.coder.impl.CoderParser;
+import org.son.chat.common.net.core.coder.impl.CoderParserManager;
 import org.son.chat.common.net.core.socket.impl.ServerSocket;
+import org.son.chat.common.protocol.PackageDefaultCoder;
 
 /**
  * @author solq
  */
 public class TestNioServer {
+	@Test
+	public void normal() {
+		ICoderParserManager coderParserManager = new CoderParserManager();
+		coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
 
-	public static void main(String[] args) {
-		ServerSocket.valueOf(SocketChannelConfig.valueOfLocal(6969)).start();
-
+		ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager).start();
 	}
+
 }

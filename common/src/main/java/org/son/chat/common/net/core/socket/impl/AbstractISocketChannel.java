@@ -11,6 +11,7 @@ import java.util.Iterator;
 import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.coder.impl.CoderResult;
+import org.son.chat.common.net.core.handle.ISocketHandle;
 import org.son.chat.common.net.core.socket.ISocketChannel;
 import org.son.chat.common.net.core.socket.ISocketService;
 import org.son.chat.common.net.exception.CoderException;
@@ -31,6 +32,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 
     protected ICoderParserManager coderParserManager;
     protected SocketChannelConfig socketChannelConfig;
+    protected ISocketHandle handle;
 
     /**
      * 读写分离 参考 : http://developer.51cto.com/art/201112/306532.htm <br>
@@ -67,7 +69,16 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 	stop();
     }
 
-    protected void handle(SelectionKey key) {
+    @Override
+    public void stop() {
+	close = true;
+	handle = null;
+	socketChannelConfig = null;
+	coderParserManager = null;
+	selector = null;
+    }
+
+    void handle(SelectionKey key) {
 	SocketChannelCtx ctx = (SocketChannelCtx) key.attachment();
 	if (!key.isValid()) {
 	    System.out.println("error key");
@@ -116,67 +127,59 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 
     void handleRead(SelectionKey key) {
 	System.out.println(" handleRead ");
-	SocketChannel clientChannel = (SocketChannel) key.channel();
-	SocketChannelCtx socketChannelCtx = (SocketChannelCtx) key.attachment();
+	final SocketChannel clientChannel = (SocketChannel) key.channel();
+	final SocketChannelCtx socketChannelCtx = (SocketChannelCtx) key.attachment();
+	final ClientSocket clientSocket = socketChannelCtx.getClientSocket();
 	ByteBuffer buffer = null;
 	long bytesRead = -1;
 	try {
 	    buffer = socketChannelCtx.readBegin();
 	    bytesRead = clientChannel.read(buffer);
 	    socketChannelCtx.readEnd(bytesRead);
-
 	} catch (Exception e) {
 	    // 链路关闭，不清理读操作会造成死循环
 	    NioUtil.clearOps(key, SelectionKey.OP_READ);
 	    coderParserManager.error(buffer, socketChannelCtx);
-	    try {
-		key.cancel();
-		clientChannel.close();
-	    } catch (IOException e1) {
-		throw new NetException("关闭Socket异常 : ", e1);
-	    }
+	    key.cancel();
+	    clientSocket.stop();
 	    throw new NetException("读取Socket数据异常 : ", e);
 	}
 
 	// 编码处理
-	try {
-	    if (bytesRead == -1) {
-		coderParserManager.error(buffer, socketChannelCtx);
-	    } else {
-		boolean run = true;
-		// 粘包处理
-		while (run) {
-		    ByteBuffer cpbuffer = socketChannelCtx.coderBegin();
-		    cpbuffer.mark();
-		    CoderResult coderResult = coderParserManager.decode(cpbuffer, socketChannelCtx);
-		    switch (coderResult.getValue()) {
-		    case SUCCEED:
-			break;
-		    case NOT_FIND_CODER:
-			final int readySize = socketChannelCtx.getWriteIndex() - socketChannelCtx.getCurrPackageIndex();
-			final int headLimit = 1024;
-			if (readySize >= headLimit) {
-			    throw new CoderException("未找到编/解码处理器 ");
-			}
-			run = false;
-
-			break;
-		    case UNFINISHED:
-		    case UNKNOWN:
-		    case ERROR:
-		    default:
-			run = false;
-			// TODO throw
-			break;
+	if (bytesRead == -1) {
+	    // 链路关闭，不清理读操作会造成死循环
+	    NioUtil.clearOps(key, SelectionKey.OP_READ);
+	    coderParserManager.error(buffer, socketChannelCtx);
+	    key.cancel();
+	    clientSocket.stop();
+	} else {
+	    boolean run = true;
+	    // 粘包处理
+	    while (run) {
+		ByteBuffer cpbuffer = socketChannelCtx.coderBegin();
+		cpbuffer.mark();
+		CoderResult coderResult = coderParserManager.decode(cpbuffer, socketChannelCtx);
+		switch (coderResult.getValue()) {
+		case SUCCEED:
+ 		    break;
+		case NOT_FIND_CODER:
+		    final int readySize = socketChannelCtx.getWriteIndex() - socketChannelCtx.getCurrPackageIndex();
+		    final int headLimit = 512;
+		    if (readySize >= headLimit) {
+			throw new CoderException("未找到编/解码处理器 ");
 		    }
-
+		    run = false;
+		    break;
+		case UNFINISHED:
+		case UNKNOWN:
+		case ERROR:
+		default:
+		    run = false;
+		    // TODO throw
+		    break;
 		}
-
 	    }
-	} catch (Exception e) {
-	    e.printStackTrace();
 	}
-
     }
 
     // getter

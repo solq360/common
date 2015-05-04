@@ -12,8 +12,7 @@ import org.son.chat.common.net.core.socket.IPipeChannel;
  * */
 public class ClientPipeChannel implements IPipeChannel<ClientSocket> {
 
-    public final static String SERVER_CHANNEL = "SERVER_CHANNEL";
-    public final static String DEFAULT_CLIENT_CHANNEL = "DEFAULT_CLIENT_CHANNEL";
+     public final static String DEFAULT_CLIENT_CHANNEL = "DEFAULT_CLIENT_CHANNEL";
     /** 已连接的客户端 */
     private Map<String, ClientSocket> ipMapClients = new HashMap<>();
     private Map<String, Map<String, ClientSocket>> channelMapClients = new HashMap<>();

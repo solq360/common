@@ -10,8 +10,10 @@ import java.util.List;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
+import org.son.chat.common.net.core.handle.ClientManagerHandle;
+import org.son.chat.common.net.core.handle.ISocketHandle;
+import org.son.chat.common.net.core.handle.PipeHandle;
 import org.son.chat.common.net.core.socket.IServerSocketService;
-import org.son.chat.common.net.core.socket.ISocketHandle;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
 
@@ -24,18 +26,17 @@ import org.son.chat.common.net.util.NioUtil;
  */
 public class ServerSocket extends AbstractISocketChannel implements IServerSocketService {
 
-    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager ) {
+    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager) {
 	ServerSocket serverSocket = new ServerSocket();
 	serverSocket.socketChannelConfig = socketChannelConfig;
 	serverSocket.coderParserManager = coderParserManager;
- 	return serverSocket;
+	return serverSocket;
     }
 
     private ServerSocketChannel socketChannel;
     /** 已连接的客户端 */
     private ClientPipeChannel channelClients = new ClientPipeChannel();
     private Thread shutdownHook;
-    private ISocketHandle socketHandle;
 
     @Override
     public void init() {
@@ -45,7 +46,8 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    socketChannel.configureBlocking(false);
 	    socketChannel.bind(socketChannelConfig.getAddress());
 	    socketChannel.register(selector, SelectionKey.OP_ACCEPT);
-	    socketHandle = new LinkHandle(channelClients);
+	    handle = new PipeHandle();
+	    ((PipeHandle) handle).register(new ClientManagerHandle(channelClients));
 	    this.close = false;
 	    registerShutdownHook();
 	} catch (IOException e) {
@@ -56,17 +58,22 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     @Override
     protected void handleAccept(SelectionKey key) {
 	System.out.println(" handleAccept ");
+	ClientSocket clientSocket = null;
 	try {
 	    SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
-	    ClientSocket clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel, coderParserManager, socketHandle);
+	    clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel, coderParserManager, handle);
 	    clientChannel.configureBlocking(false);
 	    final SocketChannelCtx ctx = clientSocket.getCtx();
+	    clientSocket.openBefore(ctx);
 	    // 必须是新注册的 SelectionKey
 	    SelectionKey sk = clientChannel.register(selector, 0, ctx);
 	    clientSocket.setSelectionKey(sk);
 	    NioUtil.setOps(sk, SelectionKey.OP_READ);
-	    clientSocket.open(ctx);
+	    clientSocket.openAfter(ctx);
 	} catch (IOException e) {
+	    if (clientSocket != null) {
+		clientSocket.openError(clientSocket.getCtx());
+	    }
 	    throw new NetException("Socket连接异常 : ", e);
 	}
     }
@@ -81,19 +88,19 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    }
 	    selector = null;
 	}
-	close = false;
 	if (socketChannel != null) {
-	    try {	
-		//业务层通知		
+	    try {
+		// 业务层通知
 		List<ClientSocket> clients = channelClients.getAllClinetSockets();
 		for (ClientSocket client : clients) {
-		    client.close(client.getCtx());
+		    client.stop();
 		}
 		socketChannel.close();
 	    } catch (IOException e) {
 		e.printStackTrace();
 	    }
 	}
+	super.stop();
     }
 
     @Override
@@ -110,7 +117,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	ByteBuffer byteBuffer = coderParserManager.encode(message, null);
 	List<ClientSocket> clients = channelClients.getChannelClinetSockets(channelName);
 	for (ClientSocket client : clients) {
-	    send(client, byteBuffer);
+	    send(client, message, byteBuffer);
 	}
     }
 
@@ -120,20 +127,25 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    public void send(ClientSocket clientSocket, ByteBuffer byteBuffer) {
-	clientSocket.send(byteBuffer);
+    public void send(ClientSocket clientSocket, Object message, ByteBuffer byteBuffer) {
+	clientSocket.send(message, byteBuffer);
     }
 
     @Override
     public void registerClientSocket(SocketChannelConfig config) {
 	System.out.println(" handleConnect ");
 	try {
-	    ClientSocket clientSocket = ClientSocket.valueOf(config, this.coderParserManager,this.socketHandle);
+	    ClientSocket clientSocket = ClientSocket.valueOf(config, this.coderParserManager, this.handle);
 	    clientSocket.openServerMode(this.selector);
 	    clientSocket.init();
 	} catch (Exception e) {
 	    throw new NetException("Socket连接异常 : ", e);
 	}
+    }
+
+    @Override
+    public void registerHandle(ISocketHandle handle) {
+	((PipeHandle) handle).register(handle);
     }
 
     private void registerShutdownHook() {

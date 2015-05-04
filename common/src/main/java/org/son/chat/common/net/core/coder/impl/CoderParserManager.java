@@ -9,6 +9,7 @@ import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.coder.IHandle;
 import org.son.chat.common.net.core.coder.IPackageCoder;
 import org.son.chat.common.net.core.coder.impl.CoderResult.ResultValue;
+import org.son.chat.common.net.core.socket.impl.ClientSocket;
 import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
 import org.son.chat.common.net.exception.CoderException;
 
@@ -22,13 +23,15 @@ public class CoderParserManager implements ICoderParserManager {
 
     @Override
     public CoderResult decode(ByteBuffer buffer, ICoderCtx ctx) {
+	final SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
+	final ClientSocket clientSocket = socketChannelCtx.getClientSocket();
+
 	for (CoderParser coderParser : coderParsers.values()) {
 	    final IPackageCoder packageCoder = coderParser.getPackageCoder();
 	    final ICoder<?, ?>[] linkCoders = coderParser.getCoders();
 	    final IHandle handle = coderParser.getHandle();
 	    Object value = null;
 	    synchronized (buffer) {
-		SocketChannelCtx socketChannelCtx = (SocketChannelCtx) ctx;
 		// 已解析完
 		if (socketChannelCtx.getCurrPackageIndex() >= buffer.limit()) {
 		    return CoderResult.valueOf(ResultValue.UNFINISHED);
@@ -55,7 +58,10 @@ public class CoderParserManager implements ICoderParserManager {
 	    }
 	    // 业务解码处理
 	    value = handle.decode(value, ctx);
+	    clientSocket.readBefore(socketChannelCtx, value);
 	    handle.handle(value, ctx);
+	    clientSocket.readAfter(socketChannelCtx, value);
+
 	    return CoderResult.valueOf(ResultValue.SUCCEED);
 	}
 	return CoderResult.valueOf(ResultValue.NOT_FIND_CODER);

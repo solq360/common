@@ -3,6 +3,7 @@ package org.son.chat.common.net.core.socket;
 import java.nio.ByteBuffer;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
+import org.son.chat.common.net.core.handle.ISocketHandle;
 import org.son.chat.common.net.core.socket.impl.ClientSocket;
 
 /**
@@ -18,7 +19,8 @@ public interface IServerSocketService {
 
     public void send(ClientSocket clientSocket, Object message);
 
-    public void send(ClientSocket clientSocket, ByteBuffer byteBuffer);
+    public void send(ClientSocket clientSocket, Object message,ByteBuffer byteBuffer);
 
     public void registerClientSocket(SocketChannelConfig config);
+    public void registerHandle(ISocketHandle handle);
 }

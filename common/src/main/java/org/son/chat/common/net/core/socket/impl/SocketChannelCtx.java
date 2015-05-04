@@ -38,7 +38,7 @@ public class SocketChannelCtx implements ICoderCtx {
     }
 
     public void close() {
-	clientSocket.close(this);
+	clientSocket.stop();
     }
 
     /**

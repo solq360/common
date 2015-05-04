@@ -81,4 +81,14 @@ public class TestSelector {
 		}
 		Thread.sleep(30000);
 	}
+	
+	@Test public void testTimeout(){
+		long currentTimeNanos = System.nanoTime();
+		System.out.println(currentTimeNanos);
+//        long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
+//        for (;;) {
+//            long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
+//            
+//       }
+	}
 }

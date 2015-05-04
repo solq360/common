@@ -7,10 +7,9 @@ import java.nio.ByteBuffer;
  * @author solq
  */
 public interface IClientSocketService {
-	
-	public void setSessionId(String id);
-	public String getSessionId();
+
 	// //////////////////消息处理行为//////////////////////////
 	public void send(Object message);
+
 	public void send(ByteBuffer byteBuffer);
 }

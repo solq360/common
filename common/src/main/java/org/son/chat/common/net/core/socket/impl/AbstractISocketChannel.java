@@ -22,7 +22,7 @@ import org.son.chat.common.net.util.NioUtil;
  * socketchannel 模板
  * @author solq
  */
-public abstract class AbstractISocketChannel implements ISocketChannel,ISocketService {
+public abstract class AbstractISocketChannel implements ISocketChannel, ISocketService {
 
 	/** jdk selector **/
 	protected Selector selector;
@@ -63,13 +63,20 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 	public void unRegister() {
 		// socketHandle.unRegister(socketChannelCtx);
 	}
-	
-	
+
+	/**
+	 * 读写分离 参考 : http://developer.51cto.com/art/201112/306532.htm <br>
+	 * 也可以参考netty
+	 */
 	@Override
 	public void start() {
 		init();
 		while (!close) {
 			try {
+				// TODO 占用CPU 处理
+				// 参考 : http://xw-z1985.iteye.com/blog/1928244
+				// http://www.tuicool.com/articles/36zimq
+				// http://xw-z1985.iteye.com/blog/1748660
 				int n = selector.select(10);
 				if (n < 0) {
 					continue;
@@ -125,10 +132,11 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 		try {
 			SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
 			clientChannel.configureBlocking(false);
-			SocketChannelCtx ctx = SocketChannelCtx.valueOf(selector, clientChannel, this.coderParserManager);			
+
+			ClientSocket clientSocket = ClientSocket.valueOfServer(socketChannelConfig, clientChannel, coderParserManager);
 			// 必须是新注册的 SelectionKey
-			SelectionKey sk = clientChannel.register(selector, 0, ctx);
-			ctx.setSelectionKey(sk);
+			SelectionKey sk = clientChannel.register(selector, 0, clientSocket.getCtx());
+			clientSocket.setSelectionKey(sk);
 			NioUtil.setOps(sk, SelectionKey.OP_READ);
 			open();
 		} catch (IOException e) {
@@ -179,35 +187,34 @@ public abstract class AbstractISocketChannel implements ISocketChannel,ISocketSe
 				coderParserManager.error(buffer, socketChannelCtx);
 			} else {
 				boolean run = true;
-				//粘包处理
-				while(run){
-					ByteBuffer cpbuffer=socketChannelCtx.coderBegin();
+				// 粘包处理
+				while (run) {
+					ByteBuffer cpbuffer = socketChannelCtx.coderBegin();
 					cpbuffer.mark();
 					CoderResult coderResult = coderParserManager.decode(cpbuffer, socketChannelCtx);
 					switch (coderResult.getValue()) {
 					case SUCCEED:
- 						break;
+						break;
 					case NOT_FIND_CODER:
-						final int readySize = socketChannelCtx.getWriteIndex() -socketChannelCtx.getCurrPackageIndex();
+						final int readySize = socketChannelCtx.getWriteIndex() - socketChannelCtx.getCurrPackageIndex();
 						final int headLimit = 1024;
-						if( readySize>= headLimit ){
+						if (readySize >= headLimit) {
 							throw new CoderException("未找到编/解码处理器 ");
 						}
-						run=false;
+						run = false;
 
 						break;
-					case UNFINISHED: 
- 					case UNKNOWN:
+					case UNFINISHED:
+					case UNKNOWN:
 					case ERROR:
 					default:
-						run=false;
+						run = false;
 						// TODO throw
 						break;
 					}
-					
-					
+
 				}
-	
+
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -7,5 +7,5 @@ package org.son.chat.common.net.core.socket;
 public interface ISocketPool {
 
 	/** 执行任务 **/
-	public void execute();
+	public void execute(Runnable task);
 }

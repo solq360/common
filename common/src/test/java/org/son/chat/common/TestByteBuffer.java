@@ -85,7 +85,7 @@ public class TestByteBuffer {
 	@Test public void testSend() throws InterruptedException{
 		CoderParserManager coderParserManager = new CoderParserManager();
  		coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
-		SocketChannelCtx socketChannelCtx = SocketChannelCtx.valueOf(null, null, coderParserManager);
+		SocketChannelCtx socketChannelCtx = SocketChannelCtx.valueOf(null);
 
 		int count =0;
 		while(true){

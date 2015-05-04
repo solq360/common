@@ -75,21 +75,21 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 
 	@Override
 	public void sendAll(Object message) {
-		ByteBuffer byteBuffer =coderParserManager.encode(message, null);
-		List<ClientSocket>  clients=channelClients.getAllClinetSockets();
-		for(ClientSocket client : clients){
+		ByteBuffer byteBuffer = coderParserManager.encode(message, null);
+		List<ClientSocket> clients = channelClients.getAllClinetSockets();
+		for (ClientSocket client : clients) {
 			send(client, byteBuffer);
 		}
 	}
 
 	@Override
 	public void send(String channelName, Object message) {
-		ByteBuffer byteBuffer =coderParserManager.encode(message, null);
-		List<ClientSocket>  clients=channelClients.getChannelClinetSockets(channelName);
-		for(ClientSocket client : clients){
+		ByteBuffer byteBuffer = coderParserManager.encode(message, null);
+		List<ClientSocket> clients = channelClients.getChannelClinetSockets(channelName);
+		for (ClientSocket client : clients) {
 			send(client, byteBuffer);
 		}
- 	}
+	}
 
 	@Override
 	public void send(ClientSocket clientSocket, Object message) {

@@ -15,5 +15,4 @@ public interface ISocketChannel {
     public SocketChannelConfig getSocketChannelConfig();
 
     public void setCoderParserManager(ICoderParserManager coderParserManager);
-
 }

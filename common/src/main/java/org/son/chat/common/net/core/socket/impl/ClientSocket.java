@@ -1,6 +1,7 @@
 package org.son.chat.common.net.core.socket.impl;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -11,6 +12,7 @@ import org.son.chat.common.net.core.coder.ICoderCtx;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
 import org.son.chat.common.net.core.handle.ISocketHandle;
 import org.son.chat.common.net.core.session.ISession;
+import org.son.chat.common.net.core.socket.IChannel;
 import org.son.chat.common.net.core.socket.IClientSocketService;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
@@ -19,7 +21,7 @@ import org.son.chat.common.net.util.SocketPoolFactory;
 /**
  * @author solq
  */
-public class ClientSocket extends AbstractISocketChannel implements IClientSocketService {
+public class ClientSocket extends AbstractISocketChannel implements IClientSocketService ,IChannel {
 
     public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
 	ClientSocket clientSocket = new ClientSocket();
@@ -46,43 +48,18 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
     // private Date heartbeatTime = new Date();
     private boolean connected = false;
     private boolean serverMode = false;
-    protected SocketChannelCtx ctx;
+    private String nameChannel;
+
+    private SocketAddress localAddress;
+    private SocketAddress remoteAddress;
+    
+    private SocketChannelCtx ctx;
 
     private SocketChannel channel;
     private SelectionKey selectionKey;
     private ISession session;
 
-    @Override
-    public void stop() {
-	if (!serverMode && selector != null && selector.isOpen()) {
-	    try {
-		selector.close();
-	    } catch (IOException e) {
-		e.printStackTrace();
-	    }
-	}
 
-	if (channel != null) {
-	    try {
-		// 业务层通知
-		this.closeBefore(ctx);
-		if (channel.isConnected()) {
-		    channel.close();
-		}
-		this.closeAfter(ctx);
-
-	    } catch (IOException e) {
-		e.printStackTrace();
-	    }
-	}
-
-	selector = null;
-	ctx = null;
-	channel = null;
-	selectionKey = null;
-	session = null;
-	super.stop();
-    }
 
     @Override
     public void send(Object message) {
@@ -167,6 +144,45 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	this.openAfter(this.ctx);
 	this.ctx.send("连接服务器成功");
 	NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
+    }
+
+    @Override
+    public void stop() {
+	if (!serverMode && selector != null && selector.isOpen()) {
+	    try {
+		selector.close();
+	    } catch (IOException e) {
+		e.printStackTrace();
+	    }
+	}
+
+	if (channel != null) {
+	    try {
+		// 业务层通知
+		this.closeBefore(ctx);
+		if (channel.isConnected()) {
+		    channel.close();
+		}
+		this.closeAfter(ctx);
+
+	    } catch (IOException e) {
+		e.printStackTrace();
+	    }
+	}
+
+	ctx = null;
+	channel = null;
+	selectionKey = null;
+	session = null;
+	super.stop();
+    }
+
+    @Override
+    public void start() {
+	if (serverMode) {
+	    return;
+	}
+	super.start();
     }
 
     public void openServerMode(Selector selector) {
@@ -261,4 +277,45 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
     public void bindSession(ISession Session) {
 	this.session = Session;
     }
+
+    @Override
+    public void buildAddress() {
+	this.localAddress = getLocalAddress();
+	this.remoteAddress = getRemoteAddress();
+    }
+
+    @Override
+    public SocketAddress getLocalAddress() {
+	if (localAddress != null) {
+	    return localAddress;
+	}
+	try {
+	    return channel.getLocalAddress();
+	} catch (IOException e) {
+	    return null;
+	}
+    }
+
+    @Override
+    public SocketAddress getRemoteAddress() {
+	if (remoteAddress != null) {
+	    return remoteAddress;
+	}
+	try {
+	    return channel.getRemoteAddress();
+	} catch (IOException e) {
+	    return null;
+	}
+    }
+
+    @Override
+    public void setChannelName(String nameChannel) {
+	this.nameChannel=nameChannel;
+    }
+
+    @Override
+    public String getChannelName() {
+ 	return nameChannel;
+    }   
+
 }

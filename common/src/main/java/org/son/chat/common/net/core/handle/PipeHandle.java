@@ -12,7 +12,7 @@ public class PipeHandle extends AbstractSocketHandle {
     private LinkedList<ISocketHandle> pipe = new LinkedList<>();
 
     public synchronized void register(ISocketHandle... handles) {
-	for (ISocketHandle handle : pipe) {
+	for (ISocketHandle handle : handles) {
 	    pipe.add(handle);
 	}
     }

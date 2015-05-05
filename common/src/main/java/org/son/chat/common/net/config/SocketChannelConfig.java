@@ -3,13 +3,13 @@ package org.son.chat.common.net.config;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
+import org.son.chat.common.net.util.IpUtil;
+
 /**
  * @author solq
  */
 public class SocketChannelConfig {
     private InetSocketAddress address;
-
-    // getter
 
     public static SocketChannelConfig valueOf(int remotePort) {
 	SocketChannelConfig result = new SocketChannelConfig();
@@ -28,6 +28,12 @@ public class SocketChannelConfig {
 	result.address = (InetSocketAddress) remoteAddress;
 	return result;
     }
+
+    public String toIp() {
+	return IpUtil.getIp(address);
+    }
+
+    // getter
 
     public InetSocketAddress getAddress() {
 	return address;

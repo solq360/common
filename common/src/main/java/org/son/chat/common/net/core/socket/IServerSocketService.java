@@ -25,7 +25,7 @@ public interface IServerSocketService {
 
     // ///////////////客户端注册处理////////////////////////
 
-    public void registerClientSocket(SocketChannelConfig config);
+    public ClientSocket registerClientSocket(SocketChannelConfig config);
 
     public ISession createSession();
 

@@ -28,7 +28,7 @@ import org.son.chat.common.net.util.NioUtil;
  */
 public class ServerSocket extends AbstractISocketChannel implements IServerSocketService {
 
-    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager,ISessionFactory sessionFactory) {
+    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager, ISessionFactory sessionFactory) {
 	ServerSocket serverSocket = new ServerSocket();
 	serverSocket.socketChannelConfig = socketChannelConfig;
 	serverSocket.coderParserManager = coderParserManager;
@@ -104,6 +104,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 		e.printStackTrace();
 	    }
 	}
+	socketChannel = null;
 	super.stop();
     }
 
@@ -136,12 +137,13 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    public void registerClientSocket(SocketChannelConfig config) {
+    public ClientSocket registerClientSocket(SocketChannelConfig config) {
 	System.out.println(" handleConnect ");
 	try {
 	    ClientSocket clientSocket = ClientSocket.valueOf(config, this.coderParserManager, this.handle);
 	    clientSocket.openServerMode(this.selector);
 	    clientSocket.init();
+	    return clientSocket;
 	} catch (Exception e) {
 	    throw new NetException("Socket连接异常 : ", e);
 	}
@@ -156,7 +158,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     public ISession createSession() {
 	return sessionFactory.createSession();
     }
-    
+
     private void registerShutdownHook() {
 	if (this.shutdownHook == null) {
 	    this.shutdownHook = new Thread() {
@@ -168,7 +170,5 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    Runtime.getRuntime().addShutdownHook(this.shutdownHook);
 	}
     }
-
-
 
 }

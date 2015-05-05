@@ -1,6 +1,7 @@
 package org.son.chat.common.net.core.session;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -27,8 +28,10 @@ public class Session implements ISession {
 
     @Override
     public void replace(ISession session) {
-	attr = new ConcurrentHashMap<>(session.getAttr());
-    }
+	for(Entry<String, Object> entry : session.getAttr().entrySet()){
+	    attr.put(entry.getKey(), entry.getValue());
+	}
+     }
 
     @Override
     public ISession setAttr(String key, Object value) {

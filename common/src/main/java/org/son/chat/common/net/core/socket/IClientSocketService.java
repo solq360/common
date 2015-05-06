@@ -22,7 +22,8 @@ public interface IClientSocketService extends ISocketHandle {
     
     public void buildAddress();
     
-    public void bindSession(ISession Session);
+    public void setSession(ISession session);    
+    public ISession getSession();
 
     // //////////////////消息处理行为//////////////////////////
     public void send(Object message);

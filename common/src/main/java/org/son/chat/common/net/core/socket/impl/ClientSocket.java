@@ -21,7 +21,7 @@ import org.son.chat.common.net.util.SocketPoolFactory;
 /**
  * @author solq
  */
-public class ClientSocket extends AbstractISocketChannel implements IClientSocketService ,IChannel {
+public class ClientSocket extends AbstractISocketChannel implements IClientSocketService, IChannel {
 
     public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
 	ClientSocket clientSocket = new ClientSocket();
@@ -52,14 +52,12 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
     private SocketAddress localAddress;
     private SocketAddress remoteAddress;
-    
+
     private SocketChannelCtx ctx;
 
     private SocketChannel channel;
     private SelectionKey selectionKey;
     private ISession session;
-
-
 
     @Override
     public void send(Object message) {
@@ -111,6 +109,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
     @Override
     public void init() {
 	try {
+	    this.init = true;
 	    this.openBefore(ctx);
 	    channel = SocketChannel.open(this.socketChannelConfig.getAddress());
 	    channel.configureBlocking(false);
@@ -139,6 +138,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	    // TODO 超时处理
 	}
 	selectionKey = channel.register(this.selector, 0, this.ctx);
+	NioUtil.clearOps(this.selectionKey, SelectionKey.OP_ACCEPT);
 	NioUtil.setOps(this.selectionKey, SelectionKey.OP_READ);
 	this.close = false;
 	this.openAfter(this.ctx);
@@ -274,11 +274,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
     }
 
     @Override
-    public void bindSession(ISession Session) {
-	this.session = Session;
-    }
-
-    @Override
     public void buildAddress() {
 	this.localAddress = getLocalAddress();
 	this.remoteAddress = getRemoteAddress();
@@ -310,12 +305,22 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 
     @Override
     public void setChannelName(String nameChannel) {
-	this.nameChannel=nameChannel;
+	this.nameChannel = nameChannel;
     }
 
     @Override
     public String getChannelName() {
- 	return nameChannel;
-    }   
+	return nameChannel;
+    }
+
+    @Override
+    public void setSession(ISession session) {
+	this.session = session;
+    }
+
+    @Override
+    public ISession getSession() {
+	return session;
+    }
 
 }

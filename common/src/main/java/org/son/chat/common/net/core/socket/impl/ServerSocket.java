@@ -17,6 +17,7 @@ import org.son.chat.common.net.core.session.ISession;
 import org.son.chat.common.net.core.session.ISessionFactory;
 import org.son.chat.common.net.core.socket.IServerSocketService;
 import org.son.chat.common.net.exception.NetException;
+import org.son.chat.common.net.util.IpUtil;
 import org.son.chat.common.net.util.NioUtil;
 
 /**
@@ -53,6 +54,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    handle = new PipeHandle();
 	    ((PipeHandle) handle).register(new ClientManagerHandle(channelClients));
 	    this.close = false;
+	    this.init = true;
 	    registerShutdownHook();
 	} catch (IOException e) {
 	    throw new NetException("初始化 NIO服务器异常 :", e);
@@ -65,6 +67,8 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	ClientSocket clientSocket = null;
 	try {
 	    SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
+	    System.out.println( IpUtil.getAddress(clientChannel.getLocalAddress()) );
+	    
 	    clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel, coderParserManager, handle);
 	    clientChannel.configureBlocking(false);
 	    final SocketChannelCtx ctx = clientSocket.getCtx();
@@ -150,8 +154,10 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    public void registerHandle(ISocketHandle handle) {
-	((PipeHandle) handle).register(handle);
+    public void registerHandle(ISocketHandle... handleArray) {
+	for(ISocketHandle handle : handleArray){
+	    ((PipeHandle) this.handle).register(handle);
+	}
     }
 
     @Override

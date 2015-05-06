@@ -1,7 +1,7 @@
 package org.son.chat.common.net.core.handle;
 
 import org.son.chat.common.net.core.coder.ICoderCtx;
-import org.son.chat.common.net.core.session.SessionFactory;
+import org.son.chat.common.net.core.session.ISessionFactory;
 import org.son.chat.common.net.core.socket.impl.ClientSocket;
 import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
 
@@ -12,9 +12,9 @@ import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
  * */
 public class SessionHandle extends AbstractSocketHandle {
 
-    private SessionFactory sessionFactory;
+    private ISessionFactory sessionFactory;
 
-    public SessionHandle(SessionFactory sessionFactory) {
+    public SessionHandle(ISessionFactory sessionFactory) {
 	this.sessionFactory = sessionFactory;
     }
 
@@ -23,7 +23,7 @@ public class SessionHandle extends AbstractSocketHandle {
 	if (!(ctx instanceof SocketChannelCtx)) {
 	    return;
 	}
-	ClientSocket clientSocket = ((SocketChannelCtx) ctx).getClientSocket();
-	clientSocket.bindSession(sessionFactory.createSession());
+	ClientSocket clientSocket = getClientSocket(ctx);
+	clientSocket.setSession(sessionFactory.createSession());
     }
 }

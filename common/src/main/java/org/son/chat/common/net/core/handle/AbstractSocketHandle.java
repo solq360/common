@@ -1,11 +1,23 @@
 package org.son.chat.common.net.core.handle;
 
 import org.son.chat.common.net.core.coder.ICoderCtx;
+import org.son.chat.common.net.core.session.ISession;
+import org.son.chat.common.net.core.socket.impl.ClientSocket;
+import org.son.chat.common.net.core.socket.impl.SocketChannelCtx;
 
 /**
  * @author solq
  * */
 public abstract class AbstractSocketHandle implements ISocketHandle {
+    
+    protected static ClientSocket getClientSocket(ICoderCtx ctx){
+	return ((SocketChannelCtx) ctx).getClientSocket();
+    }
+    
+    protected static ISession getSession(ICoderCtx ctx){
+	return getClientSocket(ctx).getSession();
+    }
+    
     @Override
     public void openBefore(ICoderCtx ctx) {
 
@@ -37,12 +49,12 @@ public abstract class AbstractSocketHandle implements ISocketHandle {
     }
 
     @Override
-    public void writeBefore(ICoderCtx ctx, Object reponse) {
+    public void writeBefore(ICoderCtx ctx, Object response) {
 
     }
 
     @Override
-    public void writeAfter(ICoderCtx ctx, Object reponse) {
+    public void writeAfter(ICoderCtx ctx, Object response) {
 
     }
 

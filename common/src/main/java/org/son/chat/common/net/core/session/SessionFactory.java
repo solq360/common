@@ -3,7 +3,7 @@ package org.son.chat.common.net.core.session;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 会话对象管理
+ * 会话工厂
  * 
  * @author solq
  * */
@@ -11,6 +11,7 @@ public class SessionFactory implements ISessionFactory {
 
     private final static AtomicLong NUM = new AtomicLong();
 
+    @Override
     public ISession createSession() {
 	Session result = Session.valueOf(buildId());
 	return result;

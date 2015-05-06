@@ -31,6 +31,6 @@ public interface IServerSocketService {
 
     // /////////////// 监控处理////////////////////////
 
-    public void registerHandle(ISocketHandle handle);
+    public void registerHandle(ISocketHandle... handleArray);
 
 }

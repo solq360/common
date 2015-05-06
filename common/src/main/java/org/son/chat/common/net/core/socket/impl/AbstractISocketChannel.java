@@ -29,6 +29,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
     protected Selector selector;
 
     protected boolean close = true;
+    protected boolean init = false;
 
     protected ICoderParserManager coderParserManager;
     protected SocketChannelConfig socketChannelConfig;
@@ -40,7 +41,9 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
      */
     @Override
     public void start() {
-	init();
+	if (!init) {
+	    init();
+	}
 	while (!close) {
 	    try {
 		// TODO 占用CPU 处理
@@ -71,6 +74,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 
     @Override
     public void stop() {
+	init = false;
 	close = true;
 	handle = null;
 	socketChannelConfig = null;
@@ -98,7 +102,8 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 	    if (key.isReadable()) {
 		handleRead(key);
 	    }
-	    if (key.isWritable()) {
+	    // 不清楚直接 isWritable 会抛异常
+	    if (key.isValid() && key.isWritable()) {
 		handleWrite(key);
 	    }
 	} catch (CancelledKeyException e) { // key 消除事件
@@ -161,7 +166,7 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
 		CoderResult coderResult = coderParserManager.decode(cpbuffer, socketChannelCtx);
 		switch (coderResult.getValue()) {
 		case SUCCEED:
- 		    break;
+		    break;
 		case NOT_FIND_CODER:
 		    final int readySize = socketChannelCtx.getWriteIndex() - socketChannelCtx.getCurrPackageIndex();
 		    final int headLimit = 512;
@@ -191,6 +196,22 @@ public abstract class AbstractISocketChannel implements ISocketChannel, ISocketS
     @Override
     public void setCoderParserManager(ICoderParserManager coderParserManager) {
 	this.coderParserManager = coderParserManager;
+    }
+
+    public Selector getSelector() {
+	return selector;
+    }
+
+    public boolean isClose() {
+	return close;
+    }
+
+    public boolean isInit() {
+	return init;
+    }
+
+    public ISocketHandle getHandle() {
+	return handle;
     }
 
 }

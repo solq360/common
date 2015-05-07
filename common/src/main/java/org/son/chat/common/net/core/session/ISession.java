@@ -10,6 +10,8 @@ public interface ISession {
     public void replace(ISession session);
     
     public ISession setAttr(String key,Object value);
+    public ISession removeAttr(String key);
+
     public <T> T getAttr(String key);
-    public Map<String,Object> getAttr();
+    public Map<String,Object> getAttr();    
 }

@@ -26,7 +26,19 @@ public class TestNioClient {
     public void normal() {
 	ICoderParserManager coderParserManager = new CoderParserManager();
 	coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
-	ClientSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager, new EmptyHandle()).start();
+	final ClientSocket clientSocket = ClientSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager, new EmptyHandle());
+	
+	Timer timer = new Timer();
+	timer.schedule(new TimerTask() {
+
+	    @Override
+	    public void run() {
+		clientSocket.send("连接服务器成功");
+		this.cancel();
+	    }
+	}, 1000);
+	
+	clientSocket.start();
     }
 
     @Test
@@ -37,15 +49,16 @@ public class TestNioClient {
 	final ServerSocket serverSocket = ServerSocket.valueOf(SocketChannelConfig.valueOf(8888), coderParserManager, sessionFactory);
 
 	Timer timer = new Timer();
- 	timer.schedule(new TimerTask() {
+	timer.schedule(new TimerTask() {
 
 	    @Override
 	    public void run() {
 		System.out.println("registerClientSocket");
-		serverSocket.registerClientSocket(SocketChannelConfig.valueOf(6969));
+		ClientSocket clientSocket = serverSocket.registerClientSocket(SocketChannelConfig.valueOf(6969));
+		clientSocket.send("连接服务器成功");
 		this.cancel();
 	    }
-	}, 5000);
+	}, 1000);
 
 	serverSocket.start();
     }
@@ -58,7 +71,7 @@ public class TestNioClient {
 	final ServerSocket serverSocket = ServerSocket.valueOf(SocketChannelConfig.valueOf(8888), coderParserManager, sessionFactory);
 
 	Timer timer = new Timer();
- 	timer.schedule(new TimerTask() {
+	timer.schedule(new TimerTask() {
 
 	    @Override
 	    public void run() {
@@ -69,11 +82,11 @@ public class TestNioClient {
 		System.out.println(" ip : " + IpUtil.getAddress(clientSocket.getRemoteAddress()));
 		this.cancel();
 	    }
-	}, 5000);
+	}, 1000);
 
 	serverSocket.start();
     }
-    
+
     @Test
     public void testHeart() {
 	ICoderParserManager coderParserManager = new CoderParserManager();
@@ -81,8 +94,8 @@ public class TestNioClient {
 	ISessionFactory sessionFactory = new SessionFactory();
 	final ServerSocket serverSocket = ServerSocket.valueOf(SocketChannelConfig.valueOf(8888), coderParserManager, sessionFactory);
 	serverSocket.init();
-	serverSocket.registerHandle(new SessionHandle(sessionFactory) ,new HeartHandle());
-	
+	serverSocket.registerHandle(new SessionHandle(sessionFactory), new HeartHandle(5000));
+
 	Timer timer = new Timer();
 	timer.schedule(new TimerTask() {
 
@@ -90,13 +103,14 @@ public class TestNioClient {
 	    public void run() {
 		System.out.println("registerClientSocket");
 		ClientSocket clientSocket = serverSocket.registerClientSocket(SocketChannelConfig.valueOf(6969));
- 		System.out.println("heart time : " +  SessionKey.KEY_HEART_TIME.getAttr(clientSocket.getSession()));
- 		this.cancel();
+		clientSocket.send("连接服务器成功");
+
+		System.out.println("heart time : " + SessionKey.KEY_HEART_TIME.getAttr(clientSocket.getSession()));
+		this.cancel();
 	    }
-	}, 5000);
+	}, 1000);
 
 	serverSocket.start();
     }
 
-     
 }

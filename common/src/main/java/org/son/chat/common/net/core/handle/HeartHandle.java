@@ -9,6 +9,7 @@ import org.son.chat.common.net.core.coder.ICoderCtx;
 import org.son.chat.common.net.core.session.ISession;
 import org.son.chat.common.net.core.session.Key;
 import org.son.chat.common.net.core.session.SessionKey;
+import org.son.chat.common.net.core.socket.impl.ClientSocket;
 import org.son.chat.common.net.util.NamedThreadFactory;
 
 /**
@@ -19,6 +20,12 @@ import org.son.chat.common.net.util.NamedThreadFactory;
 public class HeartHandle extends AbstractSocketHandle {
 
     private final static ScheduledThreadPoolExecutor scheduled = new ScheduledThreadPoolExecutor(1, new NamedThreadFactory("Heart"));
+
+    private long delayTime;
+
+    public HeartHandle(long delayTime) {
+	this.delayTime = delayTime;
+    }
 
     @Override
     public void openAfter(ICoderCtx ctx) {
@@ -41,22 +48,59 @@ public class HeartHandle extends AbstractSocketHandle {
 	key.setAttr(session, now);
 	SessionKey.KEY_HEART_TIME.setAttr(session, now);
 
-	final Future<?> preTask = SessionKey.KEY_HEART_TASK.getAttr(session);
-	if (preTask != null && !preTask.isCancelled()) {
-	    preTask.cancel(true);
+	Future<?> preTask = SessionKey.KEY_HEART_TASK.getAttr(session);
+	if (preTask != null) {
+	    return;
 	}
-	final HeartTask task = new HeartTask();
-	final long delayTime = 2000;
-	Future<?> future = scheduled.schedule(task, delayTime, TimeUnit.MILLISECONDS);
-	SessionKey.KEY_HEART_TASK.setAttr(session, future);
+
+	synchronized (session) {
+	    preTask = SessionKey.KEY_HEART_TASK.getAttr(session);
+	    if (preTask != null) {
+		return;
+	    }
+	    final long endTime = System.currentTimeMillis() + delayTime;
+	    final HeartTask task = new HeartTask(ctx, endTime);
+	    Future<?> future = scheduled.schedule(task, delayTime, TimeUnit.MILLISECONDS);
+	    SessionKey.KEY_HEART_TASK.setAttr(session, future);
+	}
     }
 
-    private final static class HeartTask implements Runnable {
+    private final class HeartTask implements Runnable {
+	private ICoderCtx ctx;
+	private long endTime;
+
+	public HeartTask(ICoderCtx ctx, long endTime) {
+	    this.ctx = ctx;
+	    this.endTime = endTime;
+	}
 
 	@Override
 	public void run() {
-	    System.out.println(" HeartTask =========== : ");
+	    final ISession session = getSession(ctx);
+	    final Date time = SessionKey.KEY_HEART_TIME.getAttr(session);
+	    final ClientSocket clientSocket = getClientSocket(ctx);
+	    if (clientSocket.isClose()) {
+		return;
+	    }
+	    // close
+	    if (time == null || time.getTime() < this.endTime) {
+ 		clientSocket.stop();
+		return;
+	    }
+	    // 下次触发时间-当前时间 = 延时执行偏移时间
+	    long delay = time.getTime() + getDelayTime() - System.currentTimeMillis();
+	    if (delay <= 0) { 
+		clientSocket.stop();
+		return;
+	    }
+	    this.endTime = System.currentTimeMillis() + delay;
+	    Future<?> future = scheduled.schedule(new HeartTask(ctx, endTime), delay, TimeUnit.MILLISECONDS);
+	    SessionKey.KEY_HEART_TASK.setAttr(session, future);
 	}
     }
 
+    // getter
+    public long getDelayTime() {
+	return delayTime;
+    }
 }

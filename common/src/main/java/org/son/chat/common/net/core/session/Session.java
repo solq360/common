@@ -49,4 +49,10 @@ public class Session implements ISession {
     public final Map<String, Object> getAttr() {
 	return attr;
     }
+
+    @Override
+    public ISession removeAttr(String key) {
+	attr.remove(key);
+	return this;
+    }
 }

@@ -45,7 +45,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	return clientSocket;
     }
 
-    // private Date heartbeatTime = new Date();
     private boolean connected = false;
     private boolean serverMode = false;
     private String nameChannel;
@@ -142,12 +141,11 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	NioUtil.setOps(this.selectionKey, SelectionKey.OP_READ);
 	this.close = false;
 	this.openAfter(this.ctx);
-	this.ctx.send("连接服务器成功");
-	NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
+	//NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
 	if (!serverMode && selector != null && selector.isOpen()) {
 	    try {
 		selector.close();

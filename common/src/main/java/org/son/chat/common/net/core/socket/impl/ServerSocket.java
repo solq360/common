@@ -87,7 +87,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
 	if (selector != null && selector.isOpen()) {
 	    try {
 		selector.close();

@@ -3,7 +3,6 @@ package org.son.chat.common.net.core.socket.impl;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.List;
@@ -16,8 +15,8 @@ import org.son.chat.common.net.core.handle.PipeHandle;
 import org.son.chat.common.net.core.session.ISession;
 import org.son.chat.common.net.core.session.ISessionFactory;
 import org.son.chat.common.net.core.socket.IServerSocketService;
+import org.son.chat.common.net.core.socket.ISocketPool;
 import org.son.chat.common.net.exception.NetException;
-import org.son.chat.common.net.util.IpUtil;
 import org.son.chat.common.net.util.NioUtil;
 
 /**
@@ -29,8 +28,10 @@ import org.son.chat.common.net.util.NioUtil;
  */
 public class ServerSocket extends AbstractISocketChannel implements IServerSocketService {
 
-    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager, ISessionFactory sessionFactory) {
+    public static ServerSocket valueOf(SocketChannelConfig socketChannelConfig, int minPoolSize, int maxPoolSize, ICoderParserManager coderParserManager, ISessionFactory sessionFactory) {
 	ServerSocket serverSocket = new ServerSocket();
+	serverSocket.minPoolSize = minPoolSize;
+	serverSocket.maxPoolSize = maxPoolSize;
 	serverSocket.socketChannelConfig = socketChannelConfig;
 	serverSocket.coderParserManager = coderParserManager;
 	serverSocket.sessionFactory = sessionFactory;
@@ -39,22 +40,31 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 
     private ServerSocketChannel socketChannel;
     private ISessionFactory sessionFactory;
-    /** 已连接的客户端 */
     private ClientPipeChannel channelClients = new ClientPipeChannel();
     private Thread shutdownHook;
+
+    private int count;
+    private int minPoolSize;
+    private int maxPoolSize;
+    private ISocketPool[] groupPool;
 
     @Override
     public void init() {
 	try {
-	    selector = Selector.open();
+	    groupPool = new SocketPool[minPoolSize];
+	    for (int i = 0; i < minPoolSize; i++) {
+		groupPool[i] = new SocketPool("server : " + i, null);
+	    }
+	    pool = new SocketPool("server accept", this);	  
 	    socketChannel = ServerSocketChannel.open();
 	    socketChannel.configureBlocking(false);
 	    socketChannel.bind(socketChannelConfig.getAddress());
-	    socketChannel.register(selector, SelectionKey.OP_ACCEPT);
+	    socketChannel.register(getSelector(), SelectionKey.OP_ACCEPT);
 	    handle = new PipeHandle();
 	    ((PipeHandle) handle).register(new ClientManagerHandle(channelClients));
 	    this.close = false;
 	    this.init = true;
+	    pool.init();
 	    registerShutdownHook();
 	} catch (IOException e) {
 	    throw new NetException("初始化 NIO服务器异常 :", e);
@@ -62,22 +72,24 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    protected void handleAccept(SelectionKey key) {
+    public void doAccept(SelectionKey key) {
 	System.out.println(" handleAccept ");
 	ClientSocket clientSocket = null;
 	try {
 	    SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
-	    System.out.println( IpUtil.getAddress(clientChannel.getLocalAddress()) );
-	    
-	    clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel, coderParserManager, handle);
 	    clientChannel.configureBlocking(false);
+	    ISocketPool pool = getNextPool();
+	    clientSocket = ClientSocket.valueOfServer(SocketChannelConfig.valueOf(clientChannel.getRemoteAddress()), clientChannel,pool, coderParserManager, handle);
+
 	    final SocketChannelCtx ctx = clientSocket.getCtx();
 	    clientSocket.openBefore(ctx);
 	    // 必须是新注册的 SelectionKey
-	    SelectionKey sk = clientChannel.register(selector, 0, ctx);
+	    SelectionKey sk = clientChannel.register(pool.getSelector(), 0, clientSocket);
 	    clientSocket.setSelectionKey(sk);
 	    NioUtil.setOps(sk, SelectionKey.OP_READ);
 	    clientSocket.openAfter(ctx);
+	    pool.init();
+
 	} catch (IOException e) {
 	    if (clientSocket != null) {
 		clientSocket.openError(clientSocket.getCtx());
@@ -88,14 +100,6 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 
     @Override
     public synchronized void stop() {
-	if (selector != null && selector.isOpen()) {
-	    try {
-		selector.close();
-	    } catch (IOException e) {
-		e.printStackTrace();
-	    }
-	    selector = null;
-	}
 	if (socketChannel != null) {
 	    try {
 		// 业务层通知
@@ -108,6 +112,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 		e.printStackTrace();
 	    }
 	}
+	pool.shutdown();
 	socketChannel = null;
 	super.stop();
     }
@@ -141,11 +146,11 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
     }
 
     @Override
-    public ClientSocket registerClientSocket(SocketChannelConfig config) {
-	System.out.println(" handleConnect ");
+    public ClientSocket registerClient(SocketChannelConfig config) {
+	System.out.println(" registerClient ");
 	try {
-	    ClientSocket clientSocket = ClientSocket.valueOf(config, this.coderParserManager, this.handle);
-	    clientSocket.openServerMode(this.selector);
+	    ClientSocket clientSocket = ClientSocket.valueOf(config, getNextPool(), this.coderParserManager, this.handle);
+	    clientSocket.openServerMode();
 	    clientSocket.init();
 	    return clientSocket;
 	} catch (Exception e) {
@@ -155,7 +160,7 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 
     @Override
     public void registerHandle(ISocketHandle... handleArray) {
-	for(ISocketHandle handle : handleArray){
+	for (ISocketHandle handle : handleArray) {
 	    ((PipeHandle) this.handle).register(handle);
 	}
     }
@@ -175,6 +180,54 @@ public class ServerSocket extends AbstractISocketChannel implements IServerSocke
 	    };
 	    Runtime.getRuntime().addShutdownHook(this.shutdownHook);
 	}
+    }
+
+    @Override
+    public ISocketPool getNextPool() {
+	ISocketPool pool = getGroupPool()[count++ % getGroupPool().length];
+ 	return pool;
+    }
+
+    @Override
+    public ISocketPool[] getGroupPool() {
+	return groupPool;
+    }
+
+    public int getMinPoolSize() {
+	return minPoolSize;
+    }
+
+    public int getMaxPoolSize() {
+	return maxPoolSize;
+    }
+
+    @Override
+    public void sync() {
+	while (pool.isRun()) {
+	    try {
+		Thread.sleep(5000);
+	    } catch (InterruptedException e) {
+		e.printStackTrace();
+	    }
+	}
+	while (true) {
+	    boolean sleep = false;
+	    for (ISocketPool sp : groupPool) {
+		if (sp.isRun()) {
+		    sleep = true;
+		    break;
+		}
+	    }
+	    if(!sleep){
+		break;
+	    }
+	    try {
+		Thread.sleep(5000);
+	    } catch (InterruptedException e) {
+		e.printStackTrace();
+	    }
+	}
+
     }
 
 }

@@ -20,7 +20,10 @@ public class TestNioServer {
 
 	ICoderParserManager coderParserManager = new CoderParserManager();
 	coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
-	ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), coderParserManager, sessionFactory).start();
+	ServerSocket serverSocket=ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), 10,20,coderParserManager, sessionFactory);
+	serverSocket.start();
+	serverSocket.sync();
+	serverSocket.stop();
     }
 
 }

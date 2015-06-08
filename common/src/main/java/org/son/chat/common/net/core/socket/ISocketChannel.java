@@ -1,5 +1,7 @@
 package org.son.chat.common.net.core.socket;
 
+import java.nio.channels.SelectionKey;
+
 import org.son.chat.common.net.config.SocketChannelConfig;
 import org.son.chat.common.net.core.coder.ICoderParserManager;
 
@@ -13,6 +15,13 @@ public interface ISocketChannel {
 
     // ////////////////配置属性////////////////////////
     public SocketChannelConfig getSocketChannelConfig();
-
     public void setCoderParserManager(ICoderParserManager coderParserManager);
+    public ISocketPool getPool();
+
+    public void doAccept(SelectionKey key);
+    public void doConnect(SelectionKey key);
+    public void doWrite(SelectionKey key);
+    public void doRead(SelectionKey key);
+    public void doClose(SelectionKey key);
+    public boolean isClose();
 }

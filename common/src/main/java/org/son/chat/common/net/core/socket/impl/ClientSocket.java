@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 import org.son.chat.common.net.config.SocketChannelConfig;
@@ -14,17 +13,18 @@ import org.son.chat.common.net.core.handle.ISocketHandle;
 import org.son.chat.common.net.core.session.ISession;
 import org.son.chat.common.net.core.socket.IChannel;
 import org.son.chat.common.net.core.socket.IClientSocketService;
+import org.son.chat.common.net.core.socket.ISocketPool;
 import org.son.chat.common.net.exception.NetException;
 import org.son.chat.common.net.util.NioUtil;
-import org.son.chat.common.net.util.SocketPoolFactory;
 
 /**
  * @author solq
  */
 public class ClientSocket extends AbstractISocketChannel implements IClientSocketService, IChannel {
 
-    public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
+    public static ClientSocket valueOf(SocketChannelConfig socketChannelConfig, ISocketPool pool, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
 	ClientSocket clientSocket = new ClientSocket();
+	clientSocket.pool = pool;
 	clientSocket.socketChannelConfig = socketChannelConfig;
 	clientSocket.coderParserManager = coderParserManager;
 	clientSocket.handle = socketHandle;
@@ -32,8 +32,9 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	return clientSocket;
     }
 
-    public static ClientSocket valueOfServer(SocketChannelConfig socketChannelConfig, SocketChannel channel, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
+    public static ClientSocket valueOfServer(SocketChannelConfig socketChannelConfig, SocketChannel channel, ISocketPool pool, ICoderParserManager coderParserManager, ISocketHandle socketHandle) {
 	ClientSocket clientSocket = new ClientSocket();
+	clientSocket.pool = pool;
 	clientSocket.handle = socketHandle;
 	clientSocket.channel = channel;
 	clientSocket.coderParserManager = coderParserManager;
@@ -45,18 +46,17 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	return clientSocket;
     }
 
-    private boolean connected = false;
-    private boolean serverMode = false;
-    private String nameChannel;
-
     private SocketAddress localAddress;
     private SocketAddress remoteAddress;
+    private SocketChannel channel;
 
     private SocketChannelCtx ctx;
-
-    private SocketChannel channel;
     private SelectionKey selectionKey;
     private ISession session;
+
+    private boolean connected = false;
+    private String nameChannel;
+    private boolean serverMode = false;
 
     @Override
     public void send(Object message) {
@@ -71,7 +71,7 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
      */
     @Override
     public void send(final Object message, final ByteBuffer byteBuffer) {
-	SocketPoolFactory.getInstance().execute(new Runnable() {
+	getPool().execute(new Runnable() {
 
 	    @Override
 	    public void run() {
@@ -112,9 +112,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	    this.openBefore(ctx);
 	    channel = SocketChannel.open(this.socketChannelConfig.getAddress());
 	    channel.configureBlocking(false);
-	    if (!serverMode) {
-		this.selector = Selector.open();
-	    }
 	    this.connected = channel.isConnected();
 	    if (!this.connected) {
 		// this.channel.register(this.selector,
@@ -136,24 +133,18 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	while (!channel.finishConnect()) {
 	    // TODO 超时处理
 	}
-	selectionKey = channel.register(this.selector, 0, this.ctx);
+	
+	selectionKey = channel.register(getSelector(),0, this);
 	NioUtil.clearOps(this.selectionKey, SelectionKey.OP_ACCEPT);
 	NioUtil.setOps(this.selectionKey, SelectionKey.OP_READ);
 	this.close = false;
 	this.openAfter(this.ctx);
-	//NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
+	// NioUtil.setOps(selectionKey, SelectionKey.OP_WRITE);
+	this.pool.init();
     }
 
     @Override
     public synchronized void stop() {
-	if (!serverMode && selector != null && selector.isOpen()) {
-	    try {
-		selector.close();
-	    } catch (IOException e) {
-		e.printStackTrace();
-	    }
-	}
-
 	if (channel != null) {
 	    try {
 		// 业务层通知
@@ -164,6 +155,14 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 		this.closeAfter(ctx);
 
 	    } catch (IOException e) {
+		e.printStackTrace();
+	    }
+	}
+
+	if (!serverMode) {
+	    try {
+		getPool().shutdown();
+	    } catch (Exception e) {
 		e.printStackTrace();
 	    }
 	}
@@ -181,11 +180,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	    return;
 	}
 	super.start();
-    }
-
-    public void openServerMode(Selector selector) {
-	this.serverMode = true;
-	this.selector = selector;
     }
 
     @Override
@@ -253,10 +247,6 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	return connected;
     }
 
-    public boolean isServerMode() {
-	return serverMode;
-    }
-
     @Override
     public boolean isClose() {
 	return this.close;
@@ -321,4 +311,18 @@ public class ClientSocket extends AbstractISocketChannel implements IClientSocke
 	return session;
     }
 
+    public void openServerMode() {
+	this.serverMode = true;
+    }
+
+    @Override
+    public void sync() {
+	while (pool.isRun()) {
+	    try {
+		Thread.sleep(5000);
+	    } catch (InterruptedException e) {
+		e.printStackTrace();
+	    }
+	}
+    }
 }

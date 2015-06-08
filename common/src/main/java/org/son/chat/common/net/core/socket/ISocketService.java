@@ -11,4 +11,6 @@ public interface ISocketService {
     public void start();
 
     public void stop();
+    
+    public void sync();
 }

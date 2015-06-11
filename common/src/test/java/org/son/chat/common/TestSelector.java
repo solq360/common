@@ -30,13 +30,13 @@ public class TestSelector {
      * selectedKeys()方法用于返回上次调用select()方法时，被"选中"的已准备好进行I/O操作的键。 <br>
      * 重要提示：selectedKeys()方法返回的键集是可修改的，实际上在两次调用select()方法之间，都必须"手工"将其清空。 <br>
      * 换句话说，select方法只会在已有的所选键集上添加键，它们不会创建新的键集。<br>
-     * @throws InterruptedException 
+     * 
+     * @throws InterruptedException
      */
     @Test
     public void testResigter() throws IOException, InterruptedException {
 	final Selector selector = Selector.open();
 	Selector selector2 = Selector.open();
-
 
 	ServerSocketChannel socketChannel = ServerSocketChannel.open();
 	socketChannel.configureBlocking(false);
@@ -69,35 +69,48 @@ public class TestSelector {
 
 	    }
 	}).start();
-	//socketChannel.register(selector2, SelectionKey.OP_ACCEPT);
-	while(true){
-	    Thread.yield();
+	// socketChannel.register(selector2, SelectionKey.OP_ACCEPT);
+	while (true) {
+	    Thread.sleep(5000);
 	}
     }
 
     @Test
-    public void testResigter1() throws IOException {
-	Selector selector = Selector.open();
+    public void testResigter1() throws IOException, InterruptedException {
+	final Selector selector = Selector.open();
+	new Thread(new Runnable() {
+
+	    @Override
+	    public void run() {
+		while (true) {
+		    try {
+			int n = selector.select();
+			if (n < 0) {
+			    System.out.println(n);
+			    continue;
+			}
+			for (Iterator<SelectionKey> i = selector.selectedKeys().iterator(); i.hasNext();) {
+			    // 得到下一个Key
+			    SelectionKey key = i.next();
+
+			    // 要手动移除 SelectionKey
+			    i.remove();
+			    NioUtil.printlnOps(key);
+			}
+		    } catch (IOException e) {
+			e.printStackTrace();
+		    }
+
+		}
+	    }
+	}).start();
+
 	SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress(6969));
 	socketChannel.configureBlocking(false);
 	socketChannel.register(selector, 0);
-
 	while (true) {
-	    int n = selector.select();
-	    if (n < 0) {
-		System.out.println(n);
-		continue;
-	    }
-	    for (Iterator<SelectionKey> i = selector.selectedKeys().iterator(); i.hasNext();) {
-		// 得到下一个Key
-		SelectionKey key = i.next();
-
-		// 要手动移除 SelectionKey
-		i.remove();
-		NioUtil.printlnOps(key);
-	    }
+	    Thread.sleep(5000);
 	}
-
     }
 
     // 关服时执行 SelectionKey.cancel()

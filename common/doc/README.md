@@ -9,9 +9,98 @@
 * 自动化编/解码
 * rpc 接口增强使用
 
+简单聊天例子
+========
+
+server
+======
+TestNioServer
+```
+//创建session管理工厂
+ISessionFactory sessionFactory = new SessionFactory();
+//创建编/解码管理
+ICoderParserManager coderParserManager = new CoderParserManager();
+//注册包编/解码,处理业务
+coderParserManager.register(CoderParser.valueOf("server chat", PackageDefaultCoder.valueOf(), new ChatTestServerHandle()));
+//创建ServerSocket 实例
+ServerSocket serverSocket=ServerSocket.valueOf(SocketChannelConfig.valueOf(6969), 10,20,coderParserManager, sessionFactory);
+
+//启动服务
+serverSocket.start();
+//阻塞当前线程
+serverSocket.sync();
+//关闭处理
+serverSocket.stop();
+	
+```
+client
+======
+TestNioClient
+传统方式连接
+```
+	//创建编/解码管理
+ 	ICoderParserManager coderParserManager = new CoderParserManager();
+ 	//注册包编/解码,处理业务
+	coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
+	//创建ClientSocket 实例
+	final ClientSocket clientSocket = ClientSocket.valueOf(SocketChannelConfig.valueOf(6969), new SocketPool("client", null), coderParserManager, new EmptyHandle());
+
+	//模拟连接之后发送消息
+	Timer timer = new Timer();
+	timer.schedule(new TimerTask() {
+
+	    @Override
+	    public void run() {
+		clientSocket.send("连接服务器成功");
+		System.out.println("send ");
+		this.cancel();
+	    }
+	}, 1000);
+	
+	//启动服务
+	clientSocket.start();
+	//阻塞当前线程
+	clientSocket.sync();
+	//关闭处理
+	clientSocket.stop();
+```
+
+服务器方式连接
+```
+	//创建session管理工厂
+	ISessionFactory sessionFactory = new SessionFactory();
+	//创建编/解码管理
+ 	ICoderParserManager coderParserManager = new CoderParserManager();
+ 	//注册包编/解码,处理业务
+	coderParserManager.register(CoderParser.valueOf("chat", PackageDefaultCoder.valueOf(), new ChatHandle()));
+	//创建ClientSocket 实例
+	final ServerSocket serverSocket = ServerSocket.valueOf(SocketChannelConfig.valueOf(8888), 10, 20, coderParserManager, sessionFactory);
+
+	//模拟连接之后发送消息
+	Timer timer = new Timer();
+	timer.schedule(new TimerTask() {
+
+	    @Override
+	    public void run() {
+		System.out.println("registerClientSocket");
+		//主动连接服务器
+		ClientSocket clientSocket = serverSocket.registerClient(SocketChannelConfig.valueOf(6969));
+		clientSocket.send("连接服务器成功");
+		this.cancel();
+	    }
+	}, 1000);
+	
+	//启动服务
+	serverSocket.start();
+	//阻塞当前线程
+	serverSocket.sync();
+	//关闭处理
+	serverSocket.stop();
+```
+
+
 
 源码实现过程
-
 ========
 链式编/解码
 
@@ -161,3 +250,5 @@ encode
 		}
 	  }
 ```
+
+未完侍加
